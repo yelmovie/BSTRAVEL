@@ -6,7 +6,8 @@ import tailwindcss from '@tailwindcss/vite'
 import react from '@vitejs/plugin-react'
 
 
-const EXPECTED_DEV_ROOT = path.resolve('D:', 'BSTRAVEL')
+/** Windows: path.resolve('D:', 'BSTRAVEL') resolves incorrectly — use absolute root path. */
+const EXPECTED_DEV_ROOT = path.resolve('D:\\BSTRAVEL')
 
 function sameRootDir(a: string, b: string) {
   return path.resolve(a).toLowerCase() === path.resolve(b).toLowerCase()
