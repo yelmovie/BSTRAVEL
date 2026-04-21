@@ -1,4 +1,13 @@
-export default {
+import ko from "./ko"
+import { mergeDeep } from "../mergeMessages"
+
+/**
+ * 운영 원칙:
+ * - ko가 source of truth
+ * - zh-CN은 검수된 번역만 overrides에 유지
+ * - 신규 키 누락은 mergeDeep으로 ko fallback 보장
+ */
+const overrides = {
   common: {
     appName: "同行釜山",
     pilotRegion: "试点服务 · 釜山",
@@ -72,8 +81,8 @@ export default {
     showPlanB: "查看 Plan B",
     timelineTitle: "全天时间线",
     summaryTitle: "实时摘要",
-    crowdTitle: "拥挤度",
-    crowdSampleNote: "未接入实时人流 API — 请参照左侧提醒。",
+    crowdTitle: "拥挤预测",
+    crowdSubtitle: "当前到访时的预计拥挤",
     nearbyTitle: "周边便利",
     emergencyTitle: "紧急·咨询",
     backDeparture: "返回出发准备",
@@ -81,7 +90,6 @@ export default {
     courseDetailLink: "路线详情",
     issueEmpty: "暂无事项。",
     destDone: "今日结束",
-    crowdSampleBadge: "SAMPLE",
     issueRefPrefix: "参考：",
     executionDataNote: "行程数据：",
     executionSampleLabel: "演示",
@@ -97,3 +105,5 @@ export default {
     partialRawNotice: "部分内容可能以原文显示。",
   },
 } as const
+
+export default mergeDeep(ko as unknown as Record<string, unknown>, overrides as unknown as Record<string, unknown>) as typeof ko

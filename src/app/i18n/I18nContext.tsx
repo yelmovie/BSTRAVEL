@@ -8,6 +8,7 @@ import {
   type ReactNode,
 } from "react"
 import {
+  ACTIVE_LOCALES,
   DEFAULT_LOCALE,
   FIRST_VISIT_STORAGE_KEY,
   LOCALE_STORAGE_KEY,
@@ -36,7 +37,11 @@ const REGISTRY: Record<AppLocale, Messages> = {
 function readStoredLocale(): AppLocale {
   try {
     const raw = localStorage.getItem(LOCALE_STORAGE_KEY)
-    if (raw && raw in REGISTRY) return raw as AppLocale
+    if (raw && raw in REGISTRY) {
+      const activeSet = new Set(ACTIVE_LOCALES.map((l) => l.code))
+      if (activeSet.has(raw as AppLocale)) return raw as AppLocale
+      return DEFAULT_LOCALE
+    }
   } catch {
     /* ignore */
   }
@@ -82,12 +87,17 @@ export function I18nProvider({ children }: { children: ReactNode }) {
     (key: string, vars?: Record<string, string>) => {
       let leaf = getLeaf(messages, key)
       if (typeof leaf !== "string") {
+        if (locale !== "ko") {
+          leaf = getLeaf(en, key)
+        }
+      }
+      if (typeof leaf !== "string") {
         leaf = getLeaf(ko, key)
       }
       const raw = typeof leaf === "string" ? leaf : key
       return interpolate(raw, vars)
     },
-    [messages],
+    [locale, messages],
   )
 
   const setLocale = useCallback((l: AppLocale) => {

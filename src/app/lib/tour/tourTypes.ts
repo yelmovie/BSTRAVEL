@@ -1,4 +1,4 @@
-/** TourAPI(KorWithService2) 프록시 응답 → UI용 정규화 타입 (One Source of Truth) */
+/** TourAPI 프록시 응답 → UI용 정규화 타입 (One Source of Truth) */
 
 /** 관광 API 텍스트의 출처·한계 표시용 (UI 번역과 별도) */
 export type TourContentQuality = "api_native" | "api_fallback_ko"
@@ -15,6 +15,11 @@ export type TourFieldProvenance =
 export type TourApiErrorPayload = {
   code: string
   message: string
+  upstreamStatus?: number
+  contentType?: string
+  preview?: string
+  reason?: string
+  resultCode?: string
 }
 
 export type TourListPayload = {

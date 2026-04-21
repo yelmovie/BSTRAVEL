@@ -1,3 +1,73 @@
 @import './fonts.css';
 @import './tailwind.css';
 @import './theme.css';
+@import './map-markers.css';
+
+.execution-route-wrapper {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+@keyframes execution-pulse-ring {
+  0% {
+    transform: scale(1);
+    opacity: 0.5;
+  }
+  60% {
+    transform: scale(1.6);
+    opacity: 0;
+  }
+  100% {
+    transform: scale(1);
+    opacity: 0.5;
+  }
+}
+
+.execution-pulse-ring {
+  animation: execution-pulse-ring 2s ease-in-out infinite;
+}
+
+.execution-route-graph {
+  flex: 1;
+  min-width: 0;
+  width: 100%;
+  min-height: 104px;
+}
+
+.execution-route-graph svg {
+  width: 100%;
+  height: 100%;
+  display: block;
+  padding: 0 8px;
+  box-sizing: border-box;
+}
+
+.execution-map-button {
+  flex-shrink: 0;
+  min-width: 84px;
+}
+
+@media (max-width: 1024px) {
+  .execution-route-graph {
+    min-height: 92px;
+  }
+}
+
+@media (max-width: 768px) {
+  .execution-route-wrapper {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .execution-route-graph {
+    width: 100%;
+    min-height: 84px;
+  }
+
+  .execution-map-button {
+    width: 100%;
+    justify-content: center;
+  }
+}

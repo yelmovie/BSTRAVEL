@@ -1,4 +1,13 @@
-export default {
+import ko from "./ko"
+import { mergeDeep } from "../mergeMessages"
+
+/**
+ * 운영 원칙:
+ * - ko가 source of truth
+ * - ja는 검수된 번역만 overrides에 유지
+ * - 누락 키는 mergeDeep으로 ko에서 자동 보완
+ */
+const overrides = {
   common: {
     appName: "いっしょにいける 釜山",
     pilotRegion: "試行サービス · 釜山",
@@ -72,8 +81,8 @@ export default {
     showPlanB: "プランBを見る",
     timelineTitle: "全日程タイムライン",
     summaryTitle: "ライブ概要",
-    crowdTitle: "混雑",
-    crowdSampleNote: "リアルタイム人流APIは未連携です。左の通知を参照してください。",
+    crowdTitle: "混雑予測",
+    crowdSubtitle: "今訪問する場合の予想混雑",
     nearbyTitle: "周辺の便利施設",
     emergencyTitle: "緊急・問い合わせ",
     backDeparture: "出発準備へ戻る",
@@ -82,7 +91,6 @@ export default {
     courseDetailLink: "コース詳細",
     issueEmpty: "表示する問題はありません。",
     destDone: "本日終了",
-    crowdSampleBadge: "SAMPLE",
     issueRefPrefix: "参考:",
     executionDataNote: "実行データ:",
     executionSampleLabel: "デモ",
@@ -98,3 +106,5 @@ export default {
     partialRawNotice: "一部の情報は原文のまま表示されます。",
   },
 } as const
+
+export default mergeDeep(ko as unknown as Record<string, unknown>, overrides as unknown as Record<string, unknown>) as typeof ko

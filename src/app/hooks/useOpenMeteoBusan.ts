@@ -1,8 +1,7 @@
 import { useEffect, useState } from "react"
-import {
-  fetchBusanCurrentWeather,
-  type OpenMeteoCurrentWeather,
-} from "../lib/weather/openMeteoClient"
+import type { OpenMeteoCurrentWeather } from "../lib/weather/openMeteoClient"
+import { BUSAN_COORDS } from "../lib/weather/openMeteoClient"
+import { getWeatherCurrentCached } from "../lib/weather/getWeather"
 
 export type OpenMeteoHookState =
   | { status: "loading" }
@@ -15,7 +14,7 @@ export function useOpenMeteoBusan(): OpenMeteoHookState {
   useEffect(() => {
     let cancelled = false
     setState({ status: "loading" })
-    fetchBusanCurrentWeather()
+    getWeatherCurrentCached(BUSAN_COORDS.latitude, BUSAN_COORDS.longitude)
       .then((data) => {
         if (!cancelled) setState({ status: "ok", data })
       })

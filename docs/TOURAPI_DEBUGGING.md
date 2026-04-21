@@ -33,6 +33,17 @@
 
 명세·파라미터는 공공데이터포털 **「한국관광공사_무장애 여행 정보_GW」** 및 배포 매뉴얼 `개방데이터_활용매뉴얼(무장애여행).zip`을 기준으로 합니다.
 
+### `detailCommon2` · `addrinfoYN` (KorService2)
+
+- 본 프로젝트의 `server/tourApi.mjs` / `server/tourDetailParams.mjs` 는 `detailCommon2` 요청에 **`addrinfoYN` 쿼리를 붙이지 않습니다.**
+- 일부 공공데이터 게이트웨이는 `addrinfoYN` 을 `addinfoYn` 등으로 보고 `INVALID_REQUEST_PARAMETER_ERROR` 를 반환하는 사례가 있어, **상세 주소 필드는 응답 본문·다른 필드**에 의존합니다.
+- 상세 실패 시 HTTP 502·`ok: false` JSON에 `endpoint: "detailCommon2"` 가 포함될 수 있습니다(서비스키·preview 원문은 본문에 넣지 않음).
+
+### 브라우저 확장 프로그램 vs 앱 API
+
+- 콘솔에 `content.js`, `chrome-extension://...`, `Cannot read properties of undefined (reading 'query')` 가 뜨는 경우 **앱 소스가 아니라 확장**에서 나는 오류인 경우가 많습니다.
+- TourAPI·프록시 이슈는 **Network**에서 ` /api/tour/detail/common` 등 **같은 출처 요청의 status / response body**로 판단하세요.
+
 ## 점검 체크리스트
 
 ### 1) 인증키 문제
@@ -79,11 +90,11 @@
 ## 화면에서 검증
 
 - `/mobile/tour-debug` : 헬스, 지역/키워드 목록, `detailCommon2` overview 확인
-- `/mobile/recommendations` : 상단 **KorWith 실시간** 블록
+- `/mobile/recommendations` : 공공데이터 기반 추천 목록·배너 (화면 카피 참고)
 
 ## 프로덕션 배포 시
 
-- `vite build` 결과물만 배포하면 **API 서버가 없음**. Node `server/tourApi.mjs`를 별도 프로세스로 두고, 리버스 프록시로 `/api/tour`를 해당 포트에 넘기거나, 동일 로직을 서버리스/백엔드로 이식해야 합니다.
+- `vite build` 결과물만 배포하면 **API 서버가 없음**. Node `server/tourApi.mjs`를 별도 프로세스로 두고, 리버스 프록시로 **`/api/tour`** 및 **`/api/crowd`** 를 해당 포트에 넘기거나, 동일 로직을 서버리스/백엔드로 이식해야 합니다.
 
 ## 다음 단계 제안
 

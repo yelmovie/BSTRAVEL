@@ -1,7 +1,7 @@
-import ko from "./ko"
+import en from "./en"
 import { mergeDeep } from "../mergeMessages"
 
-/** 아랍어 UI 핵심 문구만 별도 제공, 나머지는 한국어 fallback (mergeDeep) */
+/** 아랍어 UI 핵심 문구만 별도 제공, 나머지는 영어 fallback (mergeDeep) */
 const overrides = {
   common: {
     appName: "بوسان معًا",
@@ -18,4 +18,4 @@ const overrides = {
   },
 } as const
 
-export default mergeDeep(ko as unknown as Record<string, unknown>, overrides as unknown as Record<string, unknown>) as typeof ko
+export default mergeDeep(en as unknown as Record<string, unknown>, overrides as unknown as Record<string, unknown>) as typeof en

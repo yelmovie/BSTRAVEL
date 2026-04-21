@@ -108,6 +108,23 @@ export function EntryScreen() {
           <p style={{ fontSize: 15, color: "#7A7A8E", margin: 0, lineHeight: 1.65, fontWeight: 400, maxWidth: 420 }}>
             {t("entry.heroDesc")}
           </p>
+          <p
+            style={{
+              fontSize: 14,
+              color: "#4A4A6A",
+              margin: "14px 0 0",
+              lineHeight: 1.55,
+              fontWeight: 600,
+              maxWidth: 440,
+              padding: "11px 14px",
+              borderRadius: 12,
+              background: "white",
+              border: "1px solid #E8E9EE",
+              boxShadow: "0 2px 8px rgba(26,26,46,0.04)",
+            }}
+          >
+            {t("entry.tagline")}
+          </p>
         </motion.div>
 
         {/* Value props */}

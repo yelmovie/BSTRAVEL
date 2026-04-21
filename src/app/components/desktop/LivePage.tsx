@@ -30,7 +30,12 @@ import {
   type LiveChecklistItem,
   type LiveTripIssue,
 } from "../../data/liveTripExecutionCatalog";
+import { PLACES } from "../../data/places";
+import { usePlaceWeather } from "../../hooks/usePlaceWeather";
 import { useOpenMeteoBusan } from "../../hooks/useOpenMeteoBusan";
+import { predictCrowdLevel } from "../../lib/crowd/predictCrowdLevel";
+import { crowdInputFromPlace } from "../../lib/crowd/crowdInputMapper";
+import { CrowdPredictionCard } from "../crowd/CrowdPredictionCard";
 import { OPEN_METEO_ATTRIBUTION } from "../../lib/weather/openMeteoClient";
 import { useI18n } from "../../i18n/I18nContext";
 import type { AppLocale } from "../../i18n/constants";
@@ -103,12 +108,14 @@ export function LivePage() {
   const planBRef = useRef<HTMLDivElement>(null);
 
   const base = useMemo(() => getLiveTripExecution(id), [id]);
+  const place = useMemo(() => PLACES.find((item) => item.id === id) ?? PLACES[0], [id]);
   const [activeIndex, setActiveIndex] = useState(base.initialTimelineActiveIndex);
   const [checklist, setChecklist] = useState<LiveChecklistItem[]>(() =>
     base.checklist.map((c) => ({ ...c })),
   );
 
   const wx = useOpenMeteoBusan();
+  const placeWx = usePlaceWeather(place.lat, place.lng);
   const wxLive = wx.status === "ok";
   const wxData = wx.status === "ok" ? wx.data : null;
   const WxIcon = wxData
@@ -118,6 +125,17 @@ export function LivePage() {
         ? Cloud
         : CloudRain
     : Cloud;
+
+  const crowdPrediction = useMemo(() => {
+    const code =
+      placeWx.data?.weatherCode ??
+      (wx.status === "ok" ? wx.data.weatherCode : null);
+    return predictCrowdLevel(
+      crowdInputFromPlace(place, {
+        weatherCode: code ?? undefined,
+      }),
+    );
+  }, [place, placeWx.data, wx]);
 
   const timeline = useMemo(
     () => applyTimelineStates(base.timeline, activeIndex),
@@ -801,22 +819,8 @@ export function LivePage() {
             )}
           </div>
 
-          {/* 혼잡 요약(샘플) */}
-          <div style={{
-            background: "white",
-            borderRadius: 16,
-            border: "1.5px solid #E4E6EF",
-            padding: "18px",
-            boxShadow: "0 4px 16px rgba(0,0,0,0.04)",
-          }}>
-            <div style={{ fontSize: 11, fontWeight: 800, color: "#A0A2B8", letterSpacing: 1, marginBottom: 10 }}>
-              {t("live.crowdTitle")}
-            </div>
-            <DataBadge mode="sample" label={t("live.crowdSampleBadge")} />
-            <p style={{ margin: "10px 0 0", fontSize: 12, color: "#6B6B88", lineHeight: 1.45 }}>
-              {t("live.crowdSampleNote")}
-            </p>
-          </div>
+          {/* 혼잡도 예측 (규칙 기반 · 실측 유동인구 아님) */}
+          <CrowdPredictionCard result={crowdPrediction} />
 
           {/* 근처 편의 */}
           <div style={{

@@ -12,6 +12,7 @@
  */
 
 import { type CSSProperties } from "react";
+import travelCompleteMascotImg from "../../img/5.png";
 
 type MascotProps = { style?: CSSProperties };
 
@@ -267,74 +268,21 @@ export function WaitingMascot({ style }: MascotProps) {
 }
 
 /* ────────────────────────────────────────────────────────────
-   5. CELEBRATION  — 양팔 들어 환호, 초승달 눈, 최대 웃음
+   5. CELEBRATION — 여행 완주 · src/img/5.png (웹·앱 공통 에셋)
    ───────────────────────────────────────────────────────── */
 export function CelebrationMascot({ style }: MascotProps) {
   return (
-    <svg viewBox="0 0 240 285" fill="none" xmlns="http://www.w3.org/2000/svg" style={style}>
-
-      {/* Legs — slightly spread */}
-      <path d="M70 214 L66 255 Q66 261 71 261 L79 261 Q84 261 84 256 L86 216"
-        fill={LIMB} stroke={S} strokeWidth={SW} strokeLinecap="round" strokeLinejoin="round"/>
-      <path d="M114 216 L116 256 Q116 261 121 261 L129 261 Q134 261 134 256 L130 214"
-        fill={LIMB} stroke={S} strokeWidth={SW} strokeLinecap="round" strokeLinejoin="round"/>
-
-      {/* Body */}
-      <ellipse cx="100" cy="150" rx="50" ry="65" fill={BODY} stroke={S} strokeWidth={SW}/>
-
-      {/* Sash */}
-      <path d="M55 130 Q65 133 100 136 Q135 133 145 130 L153 175 Q143 178 100 181 Q57 178 47 175 Z"
-        fill={SASH} stroke={S} strokeWidth={SW} strokeLinejoin="round"/>
-      <line x1="65" y1="152" x2="77" y2="154" stroke="white" strokeWidth="2.5" strokeLinecap="round" strokeDasharray="6 4"/>
-      <line x1="85" y1="155" x2="97" y2="157" stroke="white" strokeWidth="2.5" strokeLinecap="round" strokeDasharray="6 4"/>
-      <path d="M125 160 Q125 157 127 157 Q129 157 129 159 Q129 157 131 157 Q133 157 133 160 Q133 163 129 165 Q125 163 125 160"
-        fill="white"/>
-
-      {/* Left arm — raised high */}
-      <path d="M50 120 Q28 90 12 62" fill="none" stroke={S} strokeWidth={SW} strokeLinecap="round"/>
-      <ellipse cx="9" cy="57" rx="13" ry="13" fill={LIMB} stroke={S} strokeWidth={SW}/>
-
-      {/* Right arm — raised high */}
-      <path d="M150 120 Q172 90 188 62" fill="none" stroke={S} strokeWidth={SW} strokeLinecap="round"/>
-      <ellipse cx="191" cy="57" rx="13" ry="13" fill={LIMB} stroke={S} strokeWidth={SW}/>
-
-      {/* Head */}
-      <circle cx="100" cy="70" r="52" fill="white" stroke={S} strokeWidth={SW}/>
-      <path d="M62 52 Q73 35 100 32 Q127 35 138 52" fill={HLT} opacity="0.7"/>
-
-      {/* Rosy cheeks */}
-      <ellipse cx="78"  cy="87" rx="10" ry="7" fill="#FFB6C1" opacity="0.42"/>
-      <ellipse cx="122" cy="87" rx="10" ry="7" fill="#FFB6C1" opacity="0.42"/>
-
-      {/* Happy crescent eyes */}
-      <path d="M79 80 Q86 67 93 80 Z" fill={EYE}/>
-      <circle cx="83" cy="77" r="2.2" fill="white" opacity="0.85"/>
-      <path d="M107 80 Q114 67 121 80 Z" fill={EYE}/>
-      <circle cx="111" cy="77" r="2.2" fill="white" opacity="0.85"/>
-
-      {/* Big smile */}
-      <path d="M80 92 Q100 114 120 92" stroke={EYE} strokeWidth={SW} fill="none" strokeLinecap="round"/>
-
-      {/* Stars */}
-      <path d="M172 30 L174 23 L176 30 L183 32 L176 34 L174 41 L172 34 L165 32 Z"
-        fill={ACC} opacity="0.7"/>
-      <path d="M18 48 L19.5 43 L21 48 L26 49.5 L21 51 L19.5 56 L18 51 L13 49.5 Z"
-        fill={ACC} opacity="0.6"/>
-      <path d="M196 100 L197 97 L198 100 L201 101 L198 102 L197 105 L196 102 L193 101 Z"
-        fill={ACC} opacity="0.5"/>
-
-      {/* Confetti dots */}
-      <circle cx="22"  cy="38"  r="3.5" fill={SASH} opacity="0.8"/>
-      <circle cx="180" cy="58"  r="3"   fill={ACC}  opacity="0.55"/>
-      <circle cx="195" cy="128" r="2.5" fill={SASH} opacity="0.65"/>
-      <circle cx="10"  cy="88"  r="2"   fill={ACC}  opacity="0.45"/>
-
-      {/* "!" celebration bubble */}
-      <path d="M118 22 Q118 11 130 11 Q142 11 142 22 Q142 30 132 31 L128 39 L126 31 Q118 31 118 22 Z"
-        fill={SASH} stroke={S} strokeWidth="1.5"/>
-      <line x1="130" y1="15" x2="130" y2="25" stroke={S} strokeWidth="2" strokeLinecap="round"/>
-      <circle cx="130" cy="28" r="1.5" fill={S}/>
-    </svg>
+    <img
+      src={travelCompleteMascotImg}
+      alt=""
+      draggable={false}
+      style={{
+        objectFit: "contain",
+        display: "block",
+        flexShrink: 0,
+        ...style,
+      }}
+    />
   );
 }
 

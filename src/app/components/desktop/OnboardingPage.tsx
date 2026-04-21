@@ -6,78 +6,39 @@ import {
 } from "lucide-react";
 import { useApp } from "../../context/AppContext";
 import { OnboardingMascot } from "../OnboardingMascot";
+import { useI18n } from "../../i18n/I18nContext";
 
 /* ── companion config ─────────────────────────────────── */
 const COMPANIONS = [
   {
     id: "elderly",
-    label: "어르신 동반",
-    sub: "계단 없는 동선 우선",
     Icon: Users,
     color: "#5B54D6",
     bg: "#EEEDFA",
-    impacts: [
-      "엘리베이터 완비 장소 우선 추천",
-      "평지 구간 최적 동선",
-      "짧은 이동 거리 최소화",
-      "인근 응급·의료 시설 포함",
-    ],
   },
   {
     id: "stroller",
-    label: "유모차",
-    sub: "넓은 통로·평지 필수",
     Icon: Baby,
     color: "#4A7BBF",
     bg: "#EFF6FF",
-    impacts: [
-      "넓은 통로·무단차 경로 적용",
-      "자갈길·급경사 구간 완전 제외",
-      "수유실 보유 장소 필터",
-      "경사로 대체 경로 확보",
-    ],
   },
   {
     id: "wheelchair",
-    label: "휠체어 사용자",
-    sub: "배리어프리 전 구간",
     Icon: Accessibility,
     color: "#3D8B7A",
     bg: "#EDF7F2",
-    impacts: [
-      "배리어프리 인증 장소 필터",
-      "경사 구간 완전 제외",
-      "장애인 주차·화장실 위치 표시",
-      "휠체어 대여 정보 제공",
-    ],
   },
   {
     id: "children",
-    label: "어린이 동반",
-    sub: "체험·교육 중심 코스",
     Icon: Smile,
     color: "#D97706",
     bg: "#FFF8ED",
-    impacts: [
-      "어린이 체험 프로그램 장소",
-      "안전 구간 우선 추천",
-      "가족 쉼터·편의 시설 포함",
-      "교육·자연 생태 테마",
-    ],
   },
   {
     id: "foreigner",
-    label: "외국인 동행",
-    sub: "다국어 안내 우선",
     Icon: Globe,
     color: "#B07AAF",
     bg: "#F8F0FF",
-    impacts: [
-      "4개국어 안내 서비스 필터",
-      "외국어 오디오가이드 보유",
-      "국제 카드 결제 가능 장소",
-      "영문 시설 표기 완비",
-    ],
   },
 ];
 
@@ -100,6 +61,40 @@ const API_SOURCES = [
 export function OnboardingPage() {
   const { companions, setCompanions } = useApp();
   const navigate = useNavigate();
+  const { t } = useI18n();
+
+  const companionCards = COMPANIONS.map((item) => ({
+    ...item,
+    label: t(`desktopPages.onboarding.companions.${item.id}.label`),
+    sub: t(`desktopPages.onboarding.companions.${item.id}.sub`),
+    impacts: [1, 2, 3, 4].map((n) =>
+      t(`desktopPages.onboarding.companions.${item.id}.impacts.${n - 1}`),
+    ),
+  }));
+
+  const dataStats = [
+    {
+      key: "barrierFree",
+      value: "340+",
+    },
+    {
+      key: "accessibleRoutes",
+      value: "3,200km",
+    },
+    {
+      key: "multilingual",
+      value: "128",
+    },
+  ] as const;
+
+  const apiSources = [
+    { key: "barrierFree", primary: true },
+    { key: "domestic", primary: true },
+    { key: "multilingual", primary: true },
+    { key: "related", primary: true },
+    { key: "kakao", primary: false },
+    { key: "busanData", primary: false },
+  ] as const;
 
   function toggle(id: string) {
     setCompanions(
@@ -110,7 +105,7 @@ export function OnboardingPage() {
   }
 
   // Aggregate impact bullets (deduplicated)
-  const allImpacts = COMPANIONS
+  const allImpacts = companionCards
     .filter(c => companions.includes(c.id))
     .flatMap(c => c.impacts.map(text => ({ text, color: c.color })));
 
@@ -119,12 +114,20 @@ export function OnboardingPage() {
   );
 
   return (
-    <div style={{ display: "flex", minHeight: "calc(100dvh - 62px)" }}>
+    <div
+      style={{
+        display: "grid",
+        gridTemplateColumns: "minmax(0, 1.35fr) minmax(300px, 0.95fr)",
+        width: "100%",
+        minHeight: "calc(100dvh - 62px)",
+      }}
+    >
       {/* ══ LEFT — question area ═══════════════════════════ */}
       <div style={{
-        flex: 1, padding: "52px 56px 48px",
+        minWidth: 0,
+        padding: "clamp(28px, 3.5vw, 52px) clamp(24px, 4vw, 56px) 48px",
         display: "flex", flexDirection: "column",
-        maxWidth: 820, overflowY: "auto",
+        overflowY: "auto",
       }}>
         {/* Step label */}
         <motion.div
@@ -135,34 +138,33 @@ export function OnboardingPage() {
           <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 6 }}>
             <div style={{ width: 5, height: 5, borderRadius: "50%", background: "#5B54D6" }} />
             <span style={{
-              fontSize: 11, fontWeight: 700, color: "#5B54D6",
+              fontSize: 13, fontWeight: 700, color: "#5B54D6",
               letterSpacing: 1.5, textTransform: "uppercase",
             }}>
-              Step 1 — 동행자 선택
+              {t("desktopPages.onboarding.step")}
             </span>
             <div style={{ display: "flex", alignItems: "center", gap: 4, background: "#EEEDFA", borderRadius: 6, padding: "3px 8px", marginLeft: 8 }}>
               <MapPin size={10} color="#5B54D6" />
-              <span style={{ fontSize: 10, fontWeight: 600, color: "#5B54D6" }}>시범 서비스 지역 · 부산</span>
+              <span style={{ fontSize: 12, fontWeight: 600, color: "#5B54D6" }}>{t("common.pilotRegion")}</span>
             </div>
           </div>
           <h1 style={{
-            fontSize: 34, fontWeight: 900, color: "#1A1B2E",
-            margin: "0 0 10px", letterSpacing: -1,
+            fontSize: "clamp(28px, 2.4vw, 42px)", fontWeight: 900, color: "#1A1B2E",
+            margin: "0 0 14px", letterSpacing: -1,
           }}>
-            누구와 함께 여행하시나요?
+            {t("desktopPages.onboarding.title")}
           </h1>
           <p style={{
-            fontSize: 15, color: "#6B6B88",
-            margin: 0, lineHeight: 1.65, fontWeight: 400, maxWidth: 540,
+            fontSize: "clamp(15px, 1.15vw, 19px)", color: "#6B6B88",
+            margin: 0, lineHeight: 1.65, fontWeight: 400, maxWidth: "min(720px, 100%)",
           }}>
-            동행자를 선택하면 한국관광공사 공공데이터 기반으로 부산 접근성·편의성 조건을 자동 최적화합니다.
-            복수 선택이 가능하며, 모든 조건을 동시에 충족하는 코스를 추천합니다.
+            {t("desktopPages.onboarding.desc")}
           </p>
         </motion.div>
 
         {/* Companion chips */}
-        <div style={{ display: "flex", gap: 14, flexWrap: "wrap", marginBottom: 36 }}>
-          {COMPANIONS.map((c, i) => {
+        <div style={{ display: "flex", gap: "clamp(10px, 1.2vw, 18px)", flexWrap: "wrap", marginBottom: 36 }}>
+          {companionCards.map((c, i) => {
             const CIcon = c.Icon;
             const sel = companions.includes(c.id);
             return (
@@ -174,7 +176,7 @@ export function OnboardingPage() {
                 whileHover={{ y: -2, boxShadow: "0 8px 24px rgba(0,0,0,0.1)" }}
                 onClick={() => toggle(c.id)}
                 style={{
-                  width: 148, padding: "20px 16px 18px",
+                  width: "clamp(148px, 14vw, 178px)", padding: "clamp(18px, 2vw, 24px) clamp(14px, 1.5vw, 18px)",
                   borderRadius: 16,
                   border: `2px solid ${sel ? c.color : "#E4E6EF"}`,
                   background: sel ? c.bg : "white",
@@ -203,14 +205,14 @@ export function OnboardingPage() {
                   <CIcon size={22} color={sel ? c.color : "#9EA0B8"} />
                 </div>
                 <div style={{
-                  fontSize: 13, fontWeight: 700,
+                  fontSize: "clamp(14px, 1.05vw, 17px)", fontWeight: 700,
                   color: sel ? c.color : "#1A1B2E",
                   marginBottom: 4, letterSpacing: -0.2,
                 }}>
                   {c.label}
                 </div>
                 <div style={{
-                  fontSize: 11, lineHeight: 1.4,
+                  fontSize: "clamp(12px, 0.9vw, 14px)", lineHeight: 1.4,
                   color: sel ? `${c.color}BB` : "#9EA0B8",
                 }}>
                   {c.sub}
@@ -232,9 +234,9 @@ export function OnboardingPage() {
             }}
           >
             <Database size={15} color="#5B54D6" />
-            <span style={{ fontSize: 13, fontWeight: 600, color: "#4A3EB8" }}>
-              {companions.length}가지 조건 선택됨
-              {companions.length >= 2 && " — 공공데이터 기반 복합 조건 통합 분석으로 최적 코스를 도출합니다."}
+            <span style={{ fontSize: "clamp(14px, 1vw, 17px)", fontWeight: 600, color: "#4A3EB8" }}>
+              {t("desktopPages.onboarding.selectedCount", { count: String(companions.length) })}
+              {companions.length >= 2 && ` - ${t("desktopPages.onboarding.selectedCountDetail")}`}
             </span>
           </motion.div>
         )}
@@ -251,28 +253,28 @@ export function OnboardingPage() {
                 ? "linear-gradient(135deg, #6C66E0, #5B54D6)"
                 : "#E4E6EF",
               color: companions.length > 0 ? "white" : "#A0A2B8",
-              fontSize: 15, fontWeight: 700,
+              fontSize: "clamp(15px, 1.1vw, 18px)", fontWeight: 700,
               cursor: companions.length > 0 ? "pointer" : "not-allowed",
               display: "flex", alignItems: "center", gap: 8,
               boxShadow: companions.length > 0 ? "0 6px 20px rgba(91,84,214,0.3)" : "none",
               transition: "all 0.2s",
             }}
           >
-            부산 여행 조건 설정하기
+            {t("desktopPages.onboarding.cta")}
             <ChevronRight size={16} />
           </motion.button>
           {companions.length === 0 && (
-            <span style={{ fontSize: 12, color: "#A0A2B8" }}>동행자를 1명 이상 선택해주세요</span>
+            <span style={{ fontSize: 12, color: "#A0A2B8" }}>{t("desktopPages.onboarding.selectAtLeastOne")}</span>
           )}
         </div>
       </div>
 
       {/* ══ RIGHT — impact preview ═════════════════════════ */}
       <div style={{
-        width: 360, flexShrink: 0,
+        minWidth: 0,
         background: "white",
         borderLeft: "1.5px solid #E4E6EF",
-        padding: "52px 28px 48px",
+        padding: "clamp(28px, 3.5vw, 52px) clamp(22px, 3vw, 36px) 48px",
         overflowY: "auto",
         display: "flex", flexDirection: "column", gap: 0,
       }}>
@@ -289,10 +291,10 @@ export function OnboardingPage() {
         {/* Impact section */}
         <div style={{ marginBottom: 28 }}>
           <div style={{
-            fontSize: 10, fontWeight: 700, color: "#A0A2B8",
+            fontSize: 12, fontWeight: 700, color: "#A0A2B8",
             letterSpacing: 1.5, textTransform: "uppercase", marginBottom: 14,
           }}>
-            선택에 따라 최적화되는 항목
+            {t("desktopPages.onboarding.optimizationTitle")}
           </div>
           {uniqueImpacts.length === 0 ? (
             <div style={{
@@ -300,8 +302,8 @@ export function OnboardingPage() {
               padding: "28px 20px", textAlign: "center",
             }}>
               <Shield size={32} color="#D0D2DC" style={{ marginBottom: 10 }} />
-              <p style={{ fontSize: 13, color: "#B0B2C4", margin: 0, lineHeight: 1.5 }}>
-                동행자를 선택하면<br />최적화 항목이 나타납니다
+              <p style={{ fontSize: "clamp(14px, 1vw, 16px)", color: "#B0B2C4", margin: 0, lineHeight: 1.5 }}>
+                {t("desktopPages.onboarding.optimizationEmpty")}
               </p>
             </div>
           ) : (
@@ -321,7 +323,7 @@ export function OnboardingPage() {
                   }}
                 >
                   <Check size={12} color={item.color} strokeWidth={2.5} />
-                  <span style={{ fontSize: 13, color: "#3A3A5A", fontWeight: 500 }}>
+                  <span style={{ fontSize: "clamp(13px, 0.95vw, 16px)", color: "#3A3A5A", fontWeight: 500 }}>
                     {item.text}
                   </span>
                 </motion.div>
@@ -336,13 +338,13 @@ export function OnboardingPage() {
         {/* Data stats */}
         <div style={{ marginBottom: 24 }}>
           <div style={{
-            fontSize: 10, fontWeight: 700, color: "#A0A2B8",
+            fontSize: 12, fontWeight: 700, color: "#A0A2B8",
             letterSpacing: 1.5, textTransform: "uppercase", marginBottom: 12,
           }}>
-            부산 공공데이터 현황
+            {t("desktopPages.onboarding.statsTitle")}
           </div>
-          {DATA_STATS.map(stat => (
-            <div key={stat.label} style={{
+          {dataStats.map(stat => (
+            <div key={stat.key} style={{
               marginBottom: 8, padding: "12px 14px",
               background: "#F6F7FB", borderRadius: 10,
             }}>
@@ -350,15 +352,19 @@ export function OnboardingPage() {
                 display: "flex",
                 justifyContent: "space-between", alignItems: "center",
               }}>
-                <span style={{ fontSize: 11, color: "#6B6B88" }}>{stat.label}</span>
+                <span style={{ fontSize: "clamp(12px, 0.95vw, 14px)", color: "#6B6B88" }}>
+                  {t(`desktopPages.onboarding.stats.${stat.key}.label`)}
+                </span>
                 <span style={{
-                  fontSize: 16, fontWeight: 800, color: "#5B54D6",
+                  fontSize: "clamp(17px, 1.4vw, 22px)", fontWeight: 800, color: "#5B54D6",
                   letterSpacing: -0.5,
                 }}>
                   {stat.value}
                 </span>
               </div>
-              <div style={{ fontSize: 10, color: "#A0A2B8", marginTop: 2 }}>{stat.note}</div>
+              <div style={{ fontSize: 11, color: "#A0A2B8", marginTop: 2 }}>
+                {t(`desktopPages.onboarding.stats.${stat.key}.note`)}
+              </div>
             </div>
           ))}
         </div>
@@ -366,26 +372,26 @@ export function OnboardingPage() {
         {/* API sources — KTO first and prominent */}
         <div>
           <div style={{
-            fontSize: 10, fontWeight: 700, color: "#A0A2B8",
+            fontSize: 12, fontWeight: 700, color: "#A0A2B8",
             letterSpacing: 1.5, textTransform: "uppercase", marginBottom: 10,
           }}>
-            추천 기준 (공공데이터 소스)
+            {t("desktopPages.onboarding.sourcesTitle")}
           </div>
-          {API_SOURCES.map((src, i) => (
-            <div key={src.label} style={{
+          {apiSources.map((src, i) => (
+            <div key={src.key} style={{
               display: "flex", alignItems: "center", gap: 8,
               padding: "6px 0",
-              borderBottom: i < API_SOURCES.length - 1 ? "1px solid #F4F5FA" : "none",
+              borderBottom: i < apiSources.length - 1 ? "1px solid #F4F5FA" : "none",
             }}>
               <Database size={10} color={src.primary ? "#5B54D6" : "#B0B2C0"} />
               <span style={{
-                fontSize: 11,
+                fontSize: "clamp(12px, 0.9vw, 14px)",
                 color: src.primary ? "#4A4A6A" : "#9EA0B8",
                 fontWeight: src.primary ? 600 : 400,
-              }}>{src.label}</span>
+              }}>{t(`desktopPages.onboarding.sources.${src.key}`)}</span>
               {src.primary && i === 0 && (
                 <div style={{ marginLeft: "auto", background: "#EEEDFA", borderRadius: 4, padding: "1px 6px" }}>
-                  <span style={{ fontSize: 9, fontWeight: 700, color: "#5B54D6" }}>핵심</span>
+                  <span style={{ fontSize: 9, fontWeight: 700, color: "#5B54D6" }}>{t("desktopPages.onboarding.primaryBadge")}</span>
                 </div>
               )}
             </div>

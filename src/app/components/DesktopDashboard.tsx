@@ -69,11 +69,11 @@ const RISK_ALERTS: Record<string, RiskAlert[]> = {
     { id: "r2", type: "weather", level: "info",    title: "오후 소나기 가능성", detail: "15:00 이후 강수 확률 35%. 온실 내 이동 중심 플랜 권장.", source: "기상청 날씨 API" },
   ],
   museum: [
-    { id: "r1", type: "crowd",   level: "urgent",  title: "특별전 혼잡 경보", detail: "현재 특별 기획전 진행 중. 평일 대비 혼잡도 +48% 감지.", source: "국립중앙박물관 실시간 API" },
+    { id: "r1", type: "crowd",   level: "urgent",  title: "특별전 혼잡 경보", detail: "현재 특별 기획전 진행 중. 평일 대비 혼잡도 +48% 감지.", source: "데모 시나리오(실측 API 아님)" },
     { id: "r2", type: "closure", level: "info",    title: "일부 전시관 정기점검", detail: "3전시실 11/15–11/20 임시 휴관. 우회 동선 확보됨.", source: "국립중앙박물관 공지" },
   ],
   palace: [
-    { id: "r1", type: "crowd",   level: "warning", title: "주말 입장 대기 발생", detail: "정문 앞 평균 35분 대기. 사전 예매 권장.", source: "문화재청 실시간 API" },
+    { id: "r1", type: "crowd",   level: "warning", title: "주말 입장 대기 발생", detail: "정문 앞 평균 35분 대기. 사전 예매 권장.", source: "데모 시나리오(실측 API 아님)" },
     { id: "r2", type: "accessibility", level: "warning", title: "경사 구간 접근성 제한", detail: "휠체어·유모차 시 자갈길 구간(3개소) 우회 필요.", source: "장애인 편의시설 공공API" },
     { id: "r3", type: "weather", level: "info",    title: "자외선 지수 높음", detail: "오늘 자외선 지수 7 (높음). 그늘·실내 휴식 장소 확인 권장.", source: "기상청 날씨 API" },
   ],

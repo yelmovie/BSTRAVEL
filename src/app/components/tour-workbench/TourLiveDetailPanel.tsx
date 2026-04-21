@@ -33,7 +33,6 @@ export function TourLiveDetailPanel({
 
   return (
     <section className="tw-panel tw-col-detail" aria-label="관광지 상세">
-      <div className="tw-panel-head">상세 정보</div>
       <div className="tw-panel-scroll">
         <div style={{ padding: '12px 12px 0' }}>
           <TourApiDataLanguageStrip variant="comfortable" />

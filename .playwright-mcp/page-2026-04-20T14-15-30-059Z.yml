@@ -1,0 +1,83 @@
+- generic [ref=e3]:
+  - banner [ref=e4]:
+    - button "같이가능 부산 시범 서비스" [ref=e5] [cursor=pointer]:
+      - img [ref=e7]
+      - generic [ref=e11]: 같이가능 부산
+      - generic [ref=e12]: 시범 서비스
+    - generic [ref=e13]:
+      - generic [ref=e15] [cursor=pointer]:
+        - img [ref=e17]
+        - generic [ref=e19]: 권역·동행자
+      - generic [ref=e22] [cursor=pointer]:
+        - img [ref=e24]
+        - generic [ref=e26]: 여행 조건
+      - generic [ref=e29] [cursor=pointer]:
+        - img [ref=e31]
+        - generic [ref=e33]: 분석
+      - generic [ref=e36]:
+        - generic [ref=e37]: "4"
+        - generic [ref=e38]: 추천·비교
+      - generic [ref=e41]:
+        - generic [ref=e42]: "5"
+        - generic [ref=e43]: 상세 확인
+      - generic [ref=e46]:
+        - generic [ref=e47]: "6"
+        - generic [ref=e48]: 실행
+    - generic [ref=e49]:
+      - button "화면 확대 (100%)" [ref=e50] [cursor=pointer]:
+        - img [ref=e51]
+        - text: 화면 확대
+        - generic [ref=e54]: (100%)
+      - generic [ref=e55] [cursor=pointer]:
+        - img [ref=e56]
+        - combobox "언어 선택" [ref=e59]:
+          - option "한국어" [selected]
+          - option "English"
+          - option "日本語"
+          - option "中文(简体)"
+          - option "中文(繁體)"
+        - generic: ▼
+      - button "홈" [ref=e60] [cursor=pointer]:
+        - img [ref=e61]
+        - text: 홈
+  - generic [ref=e65]:
+    - generic [ref=e66]:
+      - generic [ref=e69]: Step 3 - 추천 결과
+      - generic [ref=e70]:
+        - generic [ref=e71]:
+          - heading "공공데이터 기반 추천 결과" [level=1] [ref=e72]
+          - paragraph [ref=e73]: 동행자 접근성 조건을 반영해 지금 조회한 부산 추천 후보입니다.
+          - paragraph [ref=e74]: 공공데이터 기반 접근성 분석
+          - paragraph [ref=e75]: 확장 분석·비교는 시연 모드(VITE_DEMO_MODE=true)에서만 표시합니다.
+        - generic [ref=e77]:
+          - img [ref=e78]
+          - generic [ref=e81]: 부산
+    - generic [ref=e82]:
+      - generic [ref=e83]:
+        - generic [ref=e84]: 추천 장소 지도
+        - generic [ref=e85]: 카드 또는 마커를 선택하면 서로 연동됩니다.
+        - generic [ref=e86]:
+          - generic [ref=e87]:
+            - generic:
+              - generic [ref=e88]:
+                - button "Zoom in" [ref=e89] [cursor=pointer]: +
+                - button "Zoom out" [ref=e90] [cursor=pointer]: −
+              - generic [ref=e91]:
+                - link "Leaflet" [ref=e92] [cursor=pointer]:
+                  - /url: https://leafletjs.com
+                  - img [ref=e93]
+                  - text: Leaflet
+                - text: "| © OpenStreetMap contributors"
+          - generic:
+            - status: 표시할 장소 좌표가 없습니다
+      - generic [ref=e97]:
+        - generic [ref=e99]:
+          - generic [ref=e100]:
+            - img [ref=e101]
+            - generic [ref=e105]: 공공데이터 기반 추천 목록
+            - generic "TourAPI 등 공공데이터 연동 결과" [ref=e106]: 공공데이터 기반 (TourAPI)
+          - generic [ref=e107]: 한국관광공사 TourAPI·무장애 여행정보(공공데이터). 카드 근거 요약은 앱 내 규칙으로 산출합니다. · 부산 전체
+        - generic [ref=e108]:
+          - img [ref=e109]
+          - text: 추천 장소를 불러오는 중…
+    - paragraph [ref=e111]: 추천 목록은 한국관광공사 TourAPI를 요청 시점에 조회한 공공데이터입니다. 예시 데이터 코스의 지표·실행 가능성 수치는 시연용이며 TourAPI 추천과 무관합니다.

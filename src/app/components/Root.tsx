@@ -1,5 +1,5 @@
 import { Outlet } from "react-router";
-import { ApiDebugPanel } from "./dev/ApiDebugPanel";
+import { TourRecommendationsProvider } from "../context/TourRecommendationsContext";
 
 export function MobileRoot() {
   return (
@@ -24,7 +24,9 @@ export function MobileRoot() {
           boxShadow: "0 0 60px rgba(0,0,0,0.06)",
         }}
       >
-        <Outlet />
+        <TourRecommendationsProvider>
+          <Outlet />
+        </TourRecommendationsProvider>
       </div>
     </div>
   );
@@ -34,7 +36,6 @@ export function AppRoot() {
   return (
     <>
       <Outlet />
-      {import.meta.env.DEV ? <ApiDebugPanel /> : null}
     </>
   );
 }

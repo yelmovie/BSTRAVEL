@@ -1,6 +1,9 @@
 /**
  * 실시간 여행 실행 화면용 단일 소스.
  * 코스별 프리셋이 없으면 Place.courseSteps·feasibility 등으로 생성합니다.
+ *
+ * `executionDataMode: "sample"` 인 항목은 시연용이며, "live" UI 톤으로 위장하지 말고
+ * LivePage·배지로 반드시 “예시/샘플”을 병기할 것.
  */
 import type { Place } from "./places";
 import { PLACES } from "./places";
@@ -109,7 +112,7 @@ function buildIssuesFromPlace(place: Place): LiveTripIssue[] {
     out.push({
       id: "crowd-hint",
       title: "혼잡도 상대적으로 높은 시간대 가능",
-      detail: "실시간 혼잡 데이터 미연동 — 동선 여유 있게 계획하세요.",
+      detail: "유동인구 실측 미연동 — 혼잡도 예측은 참고용입니다. 동선 여유를 두고 계획하세요.",
       category: "crowd",
       severity: "warning",
       sourceNote: "샘플 추정",

@@ -1,4 +1,4 @@
-import ko from "./ko"
+import en from "./en"
 import { mergeDeep } from "../mergeMessages"
 
 const overrides = {
@@ -17,4 +17,4 @@ const overrides = {
   },
 } as const
 
-export default mergeDeep(ko as unknown as Record<string, unknown>, overrides as unknown as Record<string, unknown>) as typeof ko
+export default mergeDeep(en as unknown as Record<string, unknown>, overrides as unknown as Record<string, unknown>) as typeof en

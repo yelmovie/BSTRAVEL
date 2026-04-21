@@ -1,4 +1,4 @@
-import { useParams, useNavigate } from "react-router";
+import { useParams, useNavigate, useLocation } from "react-router";
 import { motion } from "motion/react";
 import {
   Clock, Footprints, Star, MapPin, ChevronRight, Info,
@@ -8,6 +8,11 @@ import {
 } from "lucide-react";
 import { PLACES, FACILITY_INFO } from "../data/places";
 import { TopNav } from "./TopNav";
+import { TourApiPlaceDetail } from "./tour/TourApiPlaceDetail";
+import { loadTourRecommendation } from "../lib/recommendations/tourRecommendationStorage";
+import type { NormalizedRecommendation } from "../lib/recommendations/recommendationModel";
+import { isTourApiDetailRoute } from "../lib/recommendations/tourDetailRouting";
+import { useI18n } from "../i18n/I18nContext";
 
 const FACILITY_ICONS: Record<string, React.ReactNode> = {
   elevator: <ArrowUpDown size={18} color="#5B54D6" />,
@@ -22,16 +27,15 @@ const FACILITY_ICONS: Record<string, React.ReactNode> = {
 };
 
 const SCORE_BREAKDOWN_CONFIG = [
-  { key: "accessibility" as const, label: "접근성", icon: <Shield size={13} />, color: "#5B54D6" },
-  { key: "companionFit" as const, label: "동행자 적합도", icon: <Users size={13} />, color: "#3D8B7A" },
-  { key: "walkingLoad" as const, label: "보행 부담↓", icon: <Footprints size={13} />, color: "#4A7BBF" },
-  { key: "crowdStability" as const, label: "혼잡 안정성", icon: <Zap size={13} />, color: "#B07AAF" },
-  { key: "connectivity" as const, label: "이동 연결성", icon: <TrendingUp size={13} />, color: "#C4793C" },
+  { key: "accessibility" as const, labelKey: "detail.score.accessibility", icon: <Shield size={13} />, color: "#5B54D6" },
+  { key: "companionFit" as const, labelKey: "detail.score.companionFit", icon: <Users size={13} />, color: "#3D8B7A" },
+  { key: "walkingLoad" as const, labelKey: "detail.score.walkingLoad", icon: <Footprints size={13} />, color: "#4A7BBF" },
+  { key: "crowdStability" as const, labelKey: "detail.score.crowdStability", icon: <Zap size={13} />, color: "#B07AAF" },
+  { key: "connectivity" as const, labelKey: "detail.score.connectivity", icon: <TrendingUp size={13} />, color: "#C4793C" },
 ];
 
 const RISK_COLOR: Record<string, string> = { low: "#2D8A6B", medium: "#C4793C", high: "#D05050" };
 const RISK_BG: Record<string, string> = { low: "#E8F7F2", medium: "#FFF1E3", high: "#FFE8E8" };
-const RISK_LABEL: Record<string, string> = { low: "낮음", medium: "보통", high: "높음" };
 
 function ScoreBar({ value, color, delay = 0 }: { value: number; color: string; delay?: number }) {
   return (
@@ -54,17 +58,42 @@ function openKakaoMap(query: string) {
   window.open(`https://map.kakao.com/?q=${encodeURIComponent(query)}`, "_blank");
 }
 
-function openKakaoRoute(name: string, lat?: number, lng?: number) {
+function openKakaoRoute(name: string, lat: number | undefined, lng: number | undefined, regionPrefix: string) {
   if (lat && lng) {
     window.open(`https://map.kakao.com/link/to/${encodeURIComponent(name)},${lat},${lng}`, "_blank");
   } else {
-    window.open(`https://map.kakao.com/?q=${encodeURIComponent("부산 " + name)}`, "_blank");
+    window.open(`https://map.kakao.com/?q=${encodeURIComponent(`${regionPrefix} ${name}`)}`, "_blank");
   }
 }
 
 export function DetailScreen() {
-  const { id } = useParams<{ id: string }>();
+  const { t } = useI18n();
+  const regionPrefix = t("common.regionBusan");
+  const riskLabel: Record<string, string> = {
+    low: t("detail.risk.low"),
+    medium: t("detail.risk.medium"),
+    high: t("detail.risk.high"),
+  };
+  const { id = "" } = useParams<{ id: string }>();
   const navigate = useNavigate();
+  const location = useLocation();
+  const fromState = (location.state as { tourRecommendation?: NormalizedRecommendation } | null)
+    ?.tourRecommendation;
+  const stored = id ? loadTourRecommendation(id) : null;
+  const tourItem =
+    fromState && fromState.id === id ? fromState : stored && stored.id === id ? stored : null;
+
+  if (id && isTourApiDetailRoute(id, tourItem)) {
+    return (
+      <TourApiPlaceDetail
+        variant="mobile"
+        contentId={id}
+        initialItem={tourItem}
+        onBack={() => navigate(-1)}
+      />
+    );
+  }
+
   const place = PLACES.find((p) => p.id === id) ?? PLACES[0];
   const { successRate, risks } = place.feasibility;
   const highRisks = risks.filter((r) => r.riskLevel === "high");
@@ -99,9 +128,9 @@ export function DetailScreen() {
       {/* Key metrics strip */}
       <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", background: "white", borderBottom: "1px solid #E8E9EE" }}>
         {[
-          { label: "소요 시간", value: place.duration, icon: <Clock size={16} color="#5B54D6" /> },
-          { label: "예상 보행", value: place.estimatedSteps, icon: <Footprints size={16} color="#5B54D6" /> },
-          { label: "보행 부담", value: place.walkingAmount, icon: <Navigation size={16} color="#5B54D6" /> },
+          { label: t("detail.metric.duration"), value: place.duration, icon: <Clock size={16} color="#5B54D6" /> },
+          { label: t("detail.metric.estimatedWalk"), value: place.estimatedSteps, icon: <Footprints size={16} color="#5B54D6" /> },
+          { label: t("detail.metric.walkingLoad"), value: place.walkingAmount, icon: <Navigation size={16} color="#5B54D6" /> },
         ].map((item) => (
           <div key={item.label} style={{ padding: "14px 10px", textAlign: "center", borderRight: "1px solid #F0F1F5" }}>
             <div style={{ marginBottom: 4 }}>{item.icon}</div>
@@ -130,7 +159,7 @@ export function DetailScreen() {
         {/* Kakao Map CTAs */}
         <div style={{ display: "flex", gap: 8 }}>
           <button
-            onClick={() => openKakaoMap(`부산 ${place.name}`)}
+            onClick={() => openKakaoMap(`${regionPrefix} ${place.name}`)}
             style={{
               flex: 1, padding: "11px 12px", borderRadius: 10,
               border: "1.5px solid #F9A825", background: "#FFFBF0",
@@ -141,7 +170,7 @@ export function DetailScreen() {
             <span style={{ fontSize: 13, fontWeight: 600, color: "#B8820A" }}>카카오맵으로 보기</span>
           </button>
           <button
-            onClick={() => openKakaoRoute(place.name, place.lat, place.lng)}
+            onClick={() => openKakaoRoute(place.name, place.lat, place.lng, regionPrefix)}
             style={{
               flex: 1, padding: "11px 12px", borderRadius: 10,
               border: "1.5px solid #E8E9EE", background: "white",
@@ -161,11 +190,11 @@ export function DetailScreen() {
         </div>
         <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr 1fr 1fr", gap: 6 }}>
           {[
-            { label: "지도",    icon: Route,    path: `/mobile/map/${place.id}`,           color: "#5B54D6" },
-            { label: "혼잡도",  icon: BarChart2, path: `/mobile/crowd/${place.id}`,        color: "#3D8B7A" },
-            { label: "예산",    icon: Wallet,   path: `/mobile/cost/${place.id}`,          color: "#C4793C" },
-            { label: "접근성",  icon: Users,    path: `/mobile/accessibility/${place.id}`, color: "#B07AAF" },
-            { label: "안전",    icon: Shield,   path: `/mobile/safety/${place.id}`,        color: "#E05C6A" },
+            { label: t("detail.explorer.map"),    icon: Route,    path: `/mobile/map/${place.id}`,           color: "#5B54D6" },
+            { label: t("detail.explorer.crowd"),  icon: BarChart2, path: `/mobile/crowd/${place.id}`,        color: "#3D8B7A" },
+            { label: t("detail.explorer.budget"), icon: Wallet,   path: `/mobile/cost/${place.id}`,          color: "#C4793C" },
+            { label: t("detail.explorer.accessibility"),  icon: Users,    path: `/mobile/accessibility/${place.id}`, color: "#B07AAF" },
+            { label: t("detail.explorer.safety"),    icon: Shield,   path: `/mobile/safety/${place.id}`,        color: "#E05C6A" },
           ].map((item) => {
             const Icon = item.icon;
             return (
@@ -293,12 +322,12 @@ export function DetailScreen() {
             <div style={{ fontSize: 11, fontWeight: 600, color: "#7A7A8E", marginBottom: 12, textTransform: "uppercase", letterSpacing: 0.5 }}>
               세부 점수 분석
             </div>
-            {SCORE_BREAKDOWN_CONFIG.map(({ key, label, icon, color }, i) => (
+            {SCORE_BREAKDOWN_CONFIG.map(({ key, labelKey, icon, color }, i) => (
               <div key={key} style={{ marginBottom: 10 }}>
                 <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 5 }}>
                   <div style={{ display: "flex", alignItems: "center", gap: 5 }}>
                     <span style={{ color }}>{icon}</span>
-                    <span style={{ fontSize: 12, fontWeight: 500, color: "#4A4A6A" }}>{label}</span>
+                    <span style={{ fontSize: 12, fontWeight: 500, color: "#4A4A6A" }}>{t(labelKey)}</span>
                   </div>
                   <span style={{ fontSize: 13, fontWeight: 700, color }}>{place.scoreBreakdown[key]}</span>
                 </div>
@@ -371,7 +400,7 @@ export function DetailScreen() {
                   }}
                 >
                   {r.riskLevel === "high" && <AlertTriangle size={9} />}
-                  {r.name} · {RISK_LABEL[r.riskLevel]}
+                  {r.name} · {riskLabel[r.riskLevel]}
                 </span>
               ))}
               {risks.length > 2 && (
@@ -457,7 +486,7 @@ export function DetailScreen() {
                 <button
                   onClick={(e) => {
                     e.stopPropagation();
-                    openKakaoMap(`부산 ${step.name}`);
+                    openKakaoMap(`${regionPrefix} ${step.name}`);
                   }}
                   style={{
                     display: "flex", alignItems: "center", gap: 3,
@@ -515,7 +544,7 @@ export function DetailScreen() {
           </button>
 
           <button
-            onClick={() => openKakaoMap(`부산 ${place.busanArea} 관광지`)}
+            onClick={() => openKakaoMap(`${regionPrefix} ${place.busanArea} ${t("detail.explorer.map")}`)}
             style={{
               width: "100%", padding: "14px", borderRadius: 12,
               border: "1.5px solid #F9A825", background: "#FFFBF0",

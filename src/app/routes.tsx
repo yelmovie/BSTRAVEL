@@ -33,7 +33,7 @@ import { LivePage }             from "./components/desktop/LivePage";
 import { DeparturePage }        from "./components/desktop/DeparturePage";
 import { DesktopComparisonPage } from "./components/desktop/DesktopComparisonPage";
 import { DesktopFeasibilityPage } from "./components/desktop/DesktopFeasibilityPage";
-import { KakaoMapDevPage } from "./components/desktop/KakaoMapDevPage";
+import { TourLeafletDevPage } from "./components/desktop/TourLeafletDevPage";
 
 export const router = createBrowserRouter([
   {
@@ -81,11 +81,13 @@ export const router = createBrowserRouter([
           { path: "timeline/:id",           Component: TimelinePage },
           { path: "map/:id",                Component: MapPage },
           { path: "live/:id",               Component: LivePage },
+          { path: "execution/:id",          Component: ExecutionScreen },
           { path: "departure/:id",          Component: DeparturePage },
           { path: "departure",              Component: () => <Navigate to="/desktop/results" replace /> },
           { path: "compare",                Component: DesktopComparisonPage },
           { path: "feasibility/:id",        Component: DesktopFeasibilityPage },
-          { path: "kakao-map",              Component: KakaoMapDevPage },
+          { path: "tour-map-dev",           Component: TourLeafletDevPage },
+          { path: "kakao-map",              Component: () => <Navigate to="/desktop/tour-map-dev" replace /> },
         ],
       },
     ],

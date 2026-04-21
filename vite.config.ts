@@ -1,7 +1,8 @@
 /// <reference types="vitest/config" />
 import { defineConfig } from 'vitest/config'
-import { loadEnv } from 'vite'
 import path from 'path'
+
+import { getMergedEnv } from './scripts/mergeProjectEnv.mjs'
 import tailwindcss from '@tailwindcss/vite'
 import react from '@vitejs/plugin-react'
 
@@ -42,11 +43,19 @@ function figmaAssetResolver() {
   }
 }
 
-export default defineConfig(({ mode }) => {
-  const env = loadEnv(mode, process.cwd(), '')
-  const tourPort = (env.TOURAPI_SERVER_PORT || '3080').trim()
+export default defineConfig(() => {
+  const merged = getMergedEnv(process.cwd())
+  const tourPort = String(merged.TOURAPI_SERVER_PORT || '3080').trim()
+
+  /** `.env` + `.env.local` 병합값으로 클라이언트 `import.meta.env.VITE_*` 고정 (빈 `.env.local` 줄이 `.env`를 덮어쓰지 않도록) */
+  const viteDefines = Object.fromEntries(
+    Object.entries(merged)
+      .filter(([k]) => k.startsWith('VITE_'))
+      .map(([k, v]) => [`import.meta.env.${k}`, JSON.stringify(v ?? '')]),
+  )
 
   return {
+    define: viteDefines,
     plugins: [
       devWorkspaceGuard(),
       figmaAssetResolver(),
@@ -56,12 +65,30 @@ export default defineConfig(({ mode }) => {
       tailwindcss(),
     ],
     server: {
+      /** 즐겨찾기·타 도구와 맞추기 위함; 포트 사용 중이면 Vite가 다음 빈 포트로 자동 전환 */
+      port: 5174,
+      strictPort: false,
       proxy: {
+        // `/api/weather` 는 여기 포함 안 함 (README·.env.example 동일). 날씨는 VITE_API_BASE_URL 또는 배포 api/weather.mjs
         // TourAPI 프록시: serviceKey는 Node(server/tourApi.mjs)에서만 주입 — 포트는 TOURAPI_SERVER_PORT 와 동일
         '/api/tour': {
           target: `http://127.0.0.1:${tourPort}`,
           changeOrigin: true,
+          configure: (proxy) => {
+            proxy.on('error', (err, req) => {
+              // eslint-disable-next-line no-console
+              console.error(
+                `[vite-proxy] /api/tour proxy failure target=http://127.0.0.1:${tourPort} url=${req.url ?? 'unknown'} error=${err.message}`,
+              )
+            })
+          },
         },
+        // 혼잡 외부 API 프록시 (crowdApi.mjs · 서버만 CROWD_API_* 사용)
+        '/api/crowd': {
+          target: `http://127.0.0.1:${tourPort}`,
+          changeOrigin: true,
+        },
+        // 로컬 전용: 배포(dist)에는 포함 안 됨. 프로덕션 동일 도메인 /api/tour·/api/crowd 없으면 깨질 수 있음 → README·docs/deploy-smoke-checklist.md
       },
     },
     resolve: {

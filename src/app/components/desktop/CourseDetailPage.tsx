@@ -1,4 +1,5 @@
-import { useNavigate, useParams } from "react-router";
+import { useEffect, useMemo, useState } from "react";
+import { useNavigate, useParams, useLocation } from "react-router";
 import { motion } from "motion/react";
 import {
   Clock, Footprints, MapPin, ChevronRight, ArrowLeft,
@@ -7,6 +8,20 @@ import {
 } from "lucide-react";
 import { PLACES, FACILITY_INFO } from "../../data/places";
 import { useApp } from "../../context/AppContext";
+import { TourApiPlaceDetail } from "../tour/TourApiPlaceDetail";
+import { loadTourRecommendation } from "../../lib/recommendations/tourRecommendationStorage";
+import type { NormalizedRecommendation } from "../../lib/recommendations/recommendationModel";
+import { isTourApiDetailRoute } from "../../lib/recommendations/tourDetailRouting";
+import {
+  BUSAN_COORDS,
+  OPEN_METEO_ATTRIBUTION,
+  weatherCodeToSummaryKo,
+  type OpenMeteoCurrentWeather,
+} from "../../lib/weather/openMeteoClient";
+import { getWeatherCurrentCached } from "../../lib/weather/getWeather";
+import { predictCrowdLevel } from "../../lib/crowd/predictCrowdLevel";
+import { crowdInputFromPlace } from "../../lib/crowd/crowdInputMapper";
+import { CrowdPredictionCard } from "../crowd/CrowdPredictionCard";
 
 const SCORE_META: Record<string, { score: number; color: string; gradient: string }> = {
   botanical: { score: 94, color: "#5B54D6", gradient: "linear-gradient(135deg, #4F49C8 0%, #7C75E8 100%)" },
@@ -41,18 +56,6 @@ const HIGHLIGHTS: Record<string, { label: string; Icon: any; color: string }[]> 
   ],
 };
 
-const WEATHER_MOCK: Record<string, { icon: any; label: string; sub: string; level: "ok" | "warn" }> = {
-  botanical: { icon: Cloud,   label: "오후 소나기 35%", sub: "실내 비중 낮아 주의 필요",  level: "warn" },
-  museum:    { icon: Sun,     label: "맑음 23°C",       sub: "실내 중심 — 날씨 무관",    level: "ok"  },
-  palace:    { icon: Sun,     label: "맑음 21°C",       sub: "야외 관람에 적합",         level: "ok"  },
-};
-
-const CROWD_MOCK: Record<string, { label: string; sub: string; level: "ok" | "warn"; pct: number }> = {
-  botanical: { label: "현재 한산", sub: "혼잡도 22%, 쾌적",    level: "ok",  pct: 22 },
-  museum:    { label: "특별전 혼잡 주의", sub: "혼잡도 78%",   level: "warn", pct: 78 },
-  palace:    { label: "주말 대기 발생", sub: "예상 대기 35분", level: "warn", pct: 58 },
-};
-
 function ScoreBar({ label, value, color }: { label: string; value: number; color: string }) {
   return (
     <div style={{ marginBottom: 12 }}>
@@ -75,15 +78,74 @@ function ScoreBar({ label, value, color }: { label: string; value: number; color
 export function CourseDetailPage() {
   const { id = "botanical" } = useParams<{ id: string }>();
   const navigate = useNavigate();
+  const location = useLocation();
   const { companions } = useApp();
+
+  const fromState = (location.state as { tourRecommendation?: NormalizedRecommendation } | null)
+    ?.tourRecommendation;
+  const stored = id ? loadTourRecommendation(id) : null;
+  const tourItem =
+    fromState && fromState.id === id ? fromState : stored && stored.id === id ? stored : null;
+
+  if (id && isTourApiDetailRoute(id, tourItem)) {
+    return (
+      <TourApiPlaceDetail
+        variant="desktop"
+        contentId={id}
+        initialItem={tourItem}
+        onBack={() => navigate("/desktop/results")}
+      />
+    );
+  }
 
   const place   = PLACES.find(p => p.id === id) ?? PLACES[0];
   const meta    = SCORE_META[id]  ?? SCORE_META.botanical;
   const subs    = SUBSCORES[id]   ?? SUBSCORES.botanical;
   const hilites = HIGHLIGHTS[id]  ?? [];
-  const wx      = WEATHER_MOCK[id] ?? WEATHER_MOCK.botanical;
-  const crowd   = CROWD_MOCK[id]  ?? CROWD_MOCK.botanical;
-  const WxIcon  = wx.icon;
+
+  const wxLat = place.lat ?? BUSAN_COORDS.latitude;
+  const wxLng = place.lng ?? BUSAN_COORDS.longitude;
+  const wxCoordNote =
+    place.lat != null && place.lng != null
+      ? "관광지 좌표 기준 격자 예보"
+      : "부산 대표 좌표로 조회 (코스 좌표 없음)";
+
+  const [wxLive, setWxLive] = useState<OpenMeteoCurrentWeather | null>(null);
+  const [wxLoading, setWxLoading] = useState(true);
+  const [wxErr, setWxErr] = useState<string | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    setWxLoading(true);
+    setWxErr(null);
+    getWeatherCurrentCached(wxLat, wxLng)
+      .then((w) => {
+        if (!cancelled) setWxLive(w);
+      })
+      .catch((e: unknown) => {
+        if (!cancelled) setWxErr(e instanceof Error ? e.message : "날씨 데이터 없음");
+      })
+      .finally(() => {
+        if (!cancelled) setWxLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [wxLat, wxLng]);
+
+  const crowdPrediction = useMemo(
+    () =>
+      predictCrowdLevel(
+        crowdInputFromPlace(place, {
+          weatherCode:
+            wxLive != null && wxLive.weatherCode >= 0 ? wxLive.weatherCode : null,
+        }),
+      ),
+    [place, wxLive?.weatherCode],
+  );
+
+  const WxIconResolved =
+    wxLive != null && wxLive.weatherCode >= 0 && wxLive.weatherCode <= 3 ? Sun : Cloud;
 
   return (
     <div style={{ minHeight: "calc(100dvh - 62px)", overflowY: "auto" }}>
@@ -223,7 +285,8 @@ export function CourseDetailPage() {
             border: "1px solid #FDDCAD", borderRadius: 12,
             padding: "10px 14px", lineHeight: 1.45,
           }}>
-            우측 <strong>항목별 점수·날씨 카드·혼잡도</strong>는 코스별 시연용 샘플입니다. 부산 관광지 리스트 등 실연동 데이터는 추천 화면 KorWith 영역에서 확인할 수 있습니다.
+            <strong>점수 막대</strong>는 시연용 목업입니다. <strong>날씨</strong>는 Open-Meteo 호출 결과이고,{" "}
+            <strong>혼잡도 예측</strong>은 공공 분류·시간대 규칙 추정입니다. TourAPI 기반 장소 상세는 추천 카드에서 진입합니다.
           </div>
           {/* Score breakdown card */}
           <div style={{
@@ -234,63 +297,57 @@ export function CourseDetailPage() {
               fontSize: 11, fontWeight: 700, color: "#A0A2B8",
               letterSpacing: 1, textTransform: "uppercase", marginBottom: 16,
             }}>
-              항목별 점수
+              항목별 점수 (시연용 목업)
             </div>
             <ScoreBar label="접근성"   value={subs.acc}       color="#5B54D6" />
             <ScoreBar label="편의성"   value={subs.comfort}   color="#3D8B7A" />
             <ScoreBar label="안전성"   value={subs.safety}    color="#4A7BBF" />
             <ScoreBar label="이동 효율" value={subs.efficiency} color="#B07AAF" />
-            <ScoreBar label="날씨 적합" value={subs.weather}   color="#C4793C" />
+            <ScoreBar label="날씨 적합도 (시연 점수)" value={subs.weather}   color="#C4793C" />
           </div>
 
-          {/* Weather card */}
+          {/* Weather — Open-Meteo 실데이터 (기상청 단기예보와 동일 아님) */}
           <div style={{
-            background: wx.level === "ok" ? "#F0FAF6" : "#FFF8ED",
+            background: wxErr ? "#FFF8F8" : "#F0FAF6",
             borderRadius: 14,
-            border: `1px solid ${wx.level === "ok" ? "#C3E8D4" : "#FDDCAD"}`,
+            border: `2px solid ${wxErr ? "#F5C4C4" : "#6EE7B7"}`,
             padding: "16px",
           }}>
-            <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-              <WxIcon size={20} color={wx.level === "ok" ? "#3D8B7A" : "#D97706"} />
-              <div>
-                <div style={{ fontSize: 13, fontWeight: 700, color: "#1A1B2E" }}>{wx.label}</div>
-                <div style={{ fontSize: 11, color: "#6B6B88", marginTop: 2 }}>{wx.sub}</div>
-              </div>
-              {wx.level === "warn" && (
-                <AlertTriangle size={14} color="#D97706" style={{ marginLeft: "auto" }} />
-              )}
+            <div style={{
+              fontSize: 11, fontWeight: 900, color: "#065F46",
+              marginBottom: 8,
+              letterSpacing: 0.3,
+            }}>
+              실데이터 · 날씨 (Open-Meteo)
             </div>
+            {wxLoading && (
+              <div style={{ fontSize: 13, color: "#6B6B88" }}>날씨 정보를 불러오는 중…</div>
+            )}
+            {!wxLoading && wxErr && (
+              <div style={{ fontSize: 13, color: "#A02020", lineHeight: 1.5 }}>
+                실데이터를 불러오지 못했습니다: {wxErr}
+              </div>
+            )}
+            {!wxLoading && !wxErr && wxLive && (
+              <>
+                <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                  <WxIconResolved size={22} color="#3D8B7A" />
+                  <div>
+                    <div style={{ fontSize: 14, fontWeight: 800, color: "#1A1B2E" }}>
+                      {wxLive.weatherCode < 0
+                        ? wxLive.summaryKo
+                        : `${weatherCodeToSummaryKo(wxLive.weatherCode)} · ${Math.round(wxLive.temperatureC)}°C`}
+                    </div>
+                    <div style={{ fontSize: 11, color: "#6B6B88", marginTop: 4, lineHeight: 1.45 }}>
+                      {wxCoordNote} · 습도 {Math.round(wxLive.relativeHumidityPct)}% · {OPEN_METEO_ATTRIBUTION}
+                    </div>
+                  </div>
+                </div>
+              </>
+            )}
           </div>
 
-          {/* Crowd card */}
-          <div style={{
-            background: "white", borderRadius: 14,
-            border: "1.5px solid #E4E6EF", padding: "16px",
-          }}>
-            <div style={{
-              fontSize: 11, fontWeight: 700, color: "#A0A2B8",
-              letterSpacing: 1, textTransform: "uppercase", marginBottom: 10,
-            }}>
-              실시간 혼잡도
-            </div>
-            <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 8 }}>
-              <span style={{ fontSize: 13, fontWeight: 700, color: "#1A1B2E" }}>{crowd.label}</span>
-              <span style={{
-                fontSize: 13, fontWeight: 800,
-                color: crowd.level === "ok" ? "#3D8B7A" : "#D97706",
-              }}>
-                {crowd.pct}%
-              </span>
-            </div>
-            <div style={{ height: 7, background: "#EEF0F7", borderRadius: 4, overflow: "hidden" }}>
-              <div style={{
-                width: `${crowd.pct}%`, height: "100%",
-                background: crowd.level === "ok" ? "#3D8B7A" : "#D97706",
-                borderRadius: 4, transition: "width 0.8s ease",
-              }} />
-            </div>
-            <div style={{ fontSize: 11, color: "#8E90A8", marginTop: 6 }}>{crowd.sub}</div>
-          </div>
+          <CrowdPredictionCard result={crowdPrediction} />
 
           {/* CTA */}
           <button
@@ -319,7 +376,7 @@ export function CourseDetailPage() {
             }}
           >
             <AlertTriangle size={13} />
-            실시간 변경 · 대체 코스 보기
+            조건 기반 · 대체 코스 보기
           </button>
         </div>
       </div>

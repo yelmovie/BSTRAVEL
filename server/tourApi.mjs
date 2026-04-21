@@ -1,26 +1,34 @@
 /**
- * 로컬 TourAPI 프록시 서버 (serviceKey는 이 프로세스 환경변수에서만 읽음)
- * 유료·외부 기계 번역(Google/DeepL 등) 미포함 — 관광 API만 프록시합니다.
+ * 로컬 API 프록시 서버
+ * - TourAPI: serviceKey는 이 프로세스 환경변수에서만 읽음 (VISITKOREA_SERVICE_KEY)
+ * - 혼잡 외부 API: crowdApi.mjs — 키는 CROWD_API_* 서버 전용
+ * 유료·외부 기계 번역(Google/DeepL 등) 미포함
  *
- * Vite dev: vite.config proxy → http://127.0.0.1:3080
+ * Vite dev: vite.config proxy → http://127.0.0.1:3080 (`/api/tour`, `/api/crowd`만). 날씨 `/api/weather` 는 프록시 없음 — 로컬은 `VITE_API_BASE_URL` 또는 배포는 `api/weather.mjs`.
  */
-import dotenv from 'dotenv'
 import path from 'node:path'
-import { fileURLToPath } from 'node:url'
+import fs from 'node:fs'
+import { fileURLToPath, URL } from 'node:url'
 import http from 'node:http'
+
+import { applyMergedEnv } from '../scripts/mergeProjectEnv.mjs'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 const projectRoot = path.resolve(__dirname, '..')
-dotenv.config({ path: path.join(projectRoot, '.env.local') })
-dotenv.config({ path: path.join(projectRoot, '.env') })
-import { URL } from 'node:url'
+applyMergedEnv(projectRoot)
 import {
   callKorService2,
-  callKorWithService2,
   extractItemsFromBody,
   getMaskedKorService2Url,
   getTotalCount,
 } from './visitkoreaClient.mjs'
+import { normalizeTourQueryLang } from './tourApiLang.mjs'
+import { handleCrowdProxy } from './crowdApi.mjs'
+import { handleWeatherProxy } from './weatherApi.mjs'
+import {
+  applyDetailCommon2Defaults,
+  pickDetailCommon2Params,
+} from './tourDetailParams.mjs'
 
 const PORT = Number(process.env.TOURAPI_SERVER_PORT || 3080) || 3080
 
@@ -35,25 +43,23 @@ function maskVisitKoreaKey(raw) {
   return `${k.slice(0, 4)}…${k.slice(-4)} (${k.length} chars)`
 }
 
-if (process.env.TOURAPI_THROW_IF_NO_KEY === '1' && !process.env.VISITKOREA_SERVICE_KEY?.trim()) {
-  throw new Error('TourAPI key missing')
+if (TOUR_PROXY_DEV) {
+  const envPath = path.join(projectRoot, '.env')
+  const localPath = path.join(projectRoot, '.env.local')
+  // eslint-disable-next-line no-console
+  console.log('[TourAPI] env merge root:', projectRoot)
+  // eslint-disable-next-line no-console
+  console.log('[TourAPI] files:', '.env=', fs.existsSync(envPath), '.env.local=', fs.existsSync(localPath))
+  // eslint-disable-next-line no-console
+  console.log('[TourAPI] VISITKOREA_SERVICE_KEY:', maskVisitKoreaKey(process.env.VISITKOREA_SERVICE_KEY))
+  if (!process.env.VISITKOREA_SERVICE_KEY?.trim()) {
+    // eslint-disable-next-line no-console
+    console.warn('[TourAPI] Missing VISITKOREA_SERVICE_KEY')
+  }
 }
 
-/**
- * KorService2 areaBasedList2 등 쿼리용 — 공식 코드(KO/EN/JA/ZH-CN 스타일)만 허용
- * @param {string | null | undefined} raw
- * @returns {'ko'|'en'|'ja'|'zh-CN'|null} null 이면 잘못된 값
- */
-function normalizeTourQueryLang(raw) {
-  if (raw == null || String(raw).trim() === '') return 'ko'
-  const t = String(raw).trim()
-  const lc = t.toLowerCase().replace(/_/g, '-')
-  if (lc === 'zh-cn') return 'zh-CN'
-  if (lc === 'zh') return 'zh-CN'
-  if (lc === 'ko') return 'ko'
-  if (lc === 'en') return 'en'
-  if (lc === 'ja' || lc === 'jp') return 'ja'
-  return null
+if (process.env.TOURAPI_THROW_IF_NO_KEY === '1' && !process.env.VISITKOREA_SERVICE_KEY?.trim()) {
+  throw new Error('TourAPI key missing')
 }
 
 /*
@@ -65,17 +71,17 @@ function normalizeTourQueryLang(raw) {
 /** @type {Record<string, string[]>} */
 const ALLOW = {
   'area-based': [
-    'areaCode', 'sigunguCode', 'numOfRows', 'pageNo', 'arrange', 'listYN',
+    'areaCode', 'sigunguCode', 'numOfRows', 'pageNo', 'arrange',
     'cat1', 'cat2', 'cat3', 'modifiedtime', 'eventStartDate', 'eventEndDate',
     'lang',
   ],
+  // detail-common 은 pickDetailCommon2Params + applyDetailCommon2Defaults 사용 (addrinfoYN 미전달)
   'detail-common': [
     'contentId', 'contentTypeId', 'defaultYN', 'firstImageYN', 'areacodeYN',
-    'catcodeYN', 'addrinfoYN', 'mapinfoYN', 'overviewYN',
-    'lang',
+    'catcodeYN', 'mapinfoYN', 'overviewYN', 'lang',
   ],
   'search-keyword': [
-    'keyword', 'areaCode', 'sigunguCode', 'numOfRows', 'pageNo', 'arrange', 'listYN', 'cat1', 'cat2', 'cat3',
+    'keyword', 'areaCode', 'sigunguCode', 'numOfRows', 'pageNo', 'arrange', 'cat1', 'cat2', 'cat3',
     'lang',
   ],
 }
@@ -92,48 +98,269 @@ function pickAllowed(searchParams, keys) {
 
 function sendJson(res, status, obj) {
   const body = JSON.stringify(obj)
-  res.writeHead(status, {
+  /** Vite 프록시 없이 `VITE_API_BASE_URL=http://127.0.0.1:3080` 로 브라우저가 직접 호출할 때 필요 */
+  const headers = {
     'Content-Type': 'application/json; charset=utf-8',
     'Cache-Control': 'no-store',
-  })
+  }
+  if (process.env.NODE_ENV !== 'production' || process.env.TOURAPI_CORS === '1') {
+    headers['Access-Control-Allow-Origin'] = '*'
+    headers['Access-Control-Allow-Methods'] = 'GET, OPTIONS'
+    headers['Access-Control-Allow-Headers'] = 'Content-Type'
+  }
+  res.writeHead(status, headers)
   res.end(body)
+}
+
+function tourErrorPayload(e) {
+  const code = e?.code && typeof e.code === 'string' ? e.code : 'INTERNAL'
+  const message =
+    code === 'MISSING_SERVICE_KEY'
+      ? 'TourAPI service key is missing'
+      : typeof e?.upstreamStatus === 'number'
+      ? 'TourAPI request failed'
+      : e instanceof Error
+        ? e.message
+        : 'Server error'
+  const payload = {
+    code,
+    message,
+  }
+
+  if (typeof e?.upstreamStatus === 'number') payload.upstreamStatus = e.upstreamStatus
+  if (typeof e?.contentType === 'string' && e.contentType) payload.contentType = e.contentType
+  if (typeof e?.preview === 'string' && e.preview) payload.preview = e.preview
+  if (typeof e?.reason === 'string' && e.reason) payload.reason = e.reason
+  if (typeof e?.resultCode === 'string' && e.resultCode) payload.resultCode = e.resultCode
+
+  return payload
+}
+
+function tourFailureEnvelope(e) {
+  const payload = tourErrorPayload(e)
+  return {
+    ok: false,
+    success: false,
+    source: 'tourapi',
+    upstreamStatus: payload.upstreamStatus,
+    contentType: payload.contentType,
+    message: payload.message,
+    preview: payload.preview,
+    reason: payload.reason,
+    resultCode: payload.resultCode,
+    error: payload,
+  }
+}
+
+function errorStatusFromCode(code, upstreamStatus) {
+  if (code === 'BAD_REQUEST') return 400
+  if (code === 'MISSING_SERVICE_KEY') return 500
+  if (code === 'TIMEOUT') return 504
+  if (code === 'DNS_LOOKUP_FAILED' || code === 'NETWORK_CONNECTION_FAILED' || code === 'NETWORK') return 502
+  if (typeof upstreamStatus === 'number' && upstreamStatus >= 400) return 502
+  return 502
+}
+
+const TOUR_LIST_CACHE_TTL_MS = 6 * 60 * 60 * 1000
+
+/** @type {Map<string, { expiry: number, payload: object }>} */
+const tourListServerCache = new Map()
+/** @type {Map<string, Promise<object>>} */
+const tourListInflight = new Map()
+
+const SLIM_TOUR_KEYS = [
+  'contentid',
+  'contenttypeid',
+  'title',
+  'addr1',
+  'addr2',
+  'mapx',
+  'mapy',
+  'firstimage',
+  'firstimage2',
+  'tel',
+  'areacode',
+  'sigungucode',
+  'zipcode',
+  'cat1',
+  'cat2',
+  'cat3',
+]
+
+/** @param {Record<string, unknown>} raw */
+function slimTourItem(raw) {
+  if (!raw || typeof raw !== 'object') return {}
+  /** @type {Record<string, unknown>} */
+  const out = {}
+  for (const k of SLIM_TOUR_KEYS) {
+    const v = raw[k]
+    if (v !== undefined && v !== null && String(v).trim() !== '') out[k] = v
+  }
+  return out
+}
+
+/** @param {Record<string, string>} params */
+function buildTourListCacheKey(params) {
+  const stable = {
+    areaCode: params.areaCode ?? '',
+    sigunguCode: params.sigunguCode ?? '',
+    pageNo: params.pageNo ?? '1',
+    numOfRows: params.numOfRows ?? '10',
+    arrange: params.arrange ?? '',
+    cat1: params.cat1 ?? '',
+    cat2: params.cat2 ?? '',
+    cat3: params.cat3 ?? '',
+    lang: params.lang ?? 'ko',
+    eventStartDate: params.eventStartDate ?? '',
+    eventEndDate: params.eventEndDate ?? '',
+    modifiedtime: params.modifiedtime ?? '',
+  }
+  const qs = Object.entries(stable)
+    .map(([k, v]) => `${k}=${encodeURIComponent(v)}`)
+    .sort()
+    .join('&')
+  return `tourList:${qs}`
 }
 
 async function handleAreaBased(url, res) {
   const params = pickAllowed(url.searchParams, ALLOW['area-based'])
-  if (!params.listYN) params.listYN = 'Y'
   if (!params.pageNo) params.pageNo = '1'
   if (!params.numOfRows) params.numOfRows = '10'
-  const json = await callKorWithService2('areaBasedList2', params)
-  const body = json?.response?.body ?? {}
-  const items = extractItemsFromBody(body)
-  sendJson(res, 200, {
-    ok: true,
-    data: {
-      items,
-      totalCount: getTotalCount(body),
-      pageNo: body.pageNo,
-      numOfRows: body.numOfRows,
-    },
-  })
+
+  const cacheKey = buildTourListCacheKey(params)
+  const now = Date.now()
+  const hit = tourListServerCache.get(cacheKey)
+  if (hit && hit.expiry > now) {
+    sendJson(res, 200, hit.payload)
+    return
+  }
+
+  let pending = tourListInflight.get(cacheKey)
+  if (!pending) {
+    pending = (async () => {
+      const cached = tourListServerCache.get(cacheKey)
+      if (cached && cached.expiry > Date.now()) return cached.payload
+
+      const json = await callKorService2('areaBasedList2', params)
+      const body = json?.response?.body ?? {}
+      const items = extractItemsFromBody(body).map(slimTourItem)
+      const payload = {
+        ok: true,
+        data: {
+          items,
+          totalCount: getTotalCount(body),
+          pageNo: body.pageNo,
+          numOfRows: body.numOfRows,
+        },
+      }
+      tourListServerCache.set(cacheKey, {
+        expiry: Date.now() + TOUR_LIST_CACHE_TTL_MS,
+        payload,
+      })
+      return payload
+    })().finally(() => {
+      if (tourListInflight.get(cacheKey) === pending) tourListInflight.delete(cacheKey)
+    })
+    tourListInflight.set(cacheKey, pending)
+  }
+
+  try {
+    const payload = await pending
+    sendJson(res, 200, payload)
+  } catch (e) {
+    const payload = tourErrorPayload(e)
+    const status = errorStatusFromCode(payload.code, payload.upstreamStatus)
+    if (TOUR_PROXY_DEV) {
+      const failureKind =
+        payload.code === 'MISSING_SERVICE_KEY'
+          ? 'env-missing'
+          : payload.code === 'TIMEOUT'
+            ? 'upstream-timeout'
+            : payload.code === 'DNS_LOOKUP_FAILED' || payload.code === 'NETWORK_CONNECTION_FAILED' || payload.code === 'NETWORK'
+              ? 'upstream-network'
+              : typeof payload.upstreamStatus === 'number'
+                ? 'upstream-http'
+                : 'proxy-failure'
+      // eslint-disable-next-line no-console
+      console.warn(
+        `[tour-proxy] /api/tour/area-based FAIL kind=${failureKind} status=${status} code=${payload.code} upstream=${payload.upstreamStatus ?? '—'} reason=${payload.reason ?? payload.message}`,
+      )
+    }
+    sendJson(res, status, tourFailureEnvelope(e))
+  }
+}
+
+function detailCommonPublicMessage(payload) {
+  const reason = typeof payload.reason === 'string' ? payload.reason : ''
+  if (reason.includes('INVALID_REQUEST_PARAMETER') || reason.includes('INVALID_REQUEST_PARAMETER_ERROR')) {
+    return '관광 공공데이터(API)가 요청 형식을 거절했습니다. 잠시 후 다시 시도해 주세요.'
+  }
+  if (typeof payload.message === 'string' && payload.message && payload.message !== 'TourAPI request failed') {
+    return payload.message
+  }
+  return '관광 데이터 상세 요청에 실패했습니다.'
+}
+
+function clientSafeDetailErrorPayload(payload) {
+  /** preview 원문은 서버 로그만 사용 — 클라이언트에는 미전달 */
+  return {
+    code: typeof payload.code === 'string' && payload.code ? payload.code : 'TOUR_DETAIL_UPSTREAM_ERROR',
+    message: detailCommonPublicMessage(payload),
+    reason: typeof payload.reason === 'string' ? payload.reason : undefined,
+    resultCode: payload.resultCode,
+    upstreamStatus: payload.upstreamStatus,
+    endpoint: 'detailCommon2',
+    operation: 'detailCommon2',
+  }
 }
 
 async function handleDetailCommon(url, res) {
-  const params = pickAllowed(url.searchParams, ALLOW['detail-common'])
+  let params = pickDetailCommon2Params(url.searchParams)
+  params = applyDetailCommon2Defaults(params)
+
   if (!params.contentId || !params.contentTypeId) {
-    sendJson(res, 400, { ok: false, error: { code: 'BAD_REQUEST', message: 'contentId and contentTypeId are required' } })
+    sendJson(res, 400, {
+      ok: false,
+      success: false,
+      endpoint: 'detailCommon2',
+      message: 'contentId and contentTypeId are required',
+      error: { code: 'BAD_REQUEST', message: 'contentId and contentTypeId are required' },
+    })
     return
   }
-  const json = await callKorWithService2('detailCommon2', params)
-  const body = json?.response?.body ?? {}
-  const items = extractItemsFromBody(body)
-  sendJson(res, 200, {
-    ok: true,
-    data: {
-      item: items[0] ?? null,
-      rawCount: items.length,
-    },
-  })
+
+  if (TOUR_PROXY_DEV) {
+    // eslint-disable-next-line no-console
+    console.log(`[tour-proxy] detailCommon2 param keys: ${Object.keys(params).sort().join(', ')}`)
+    // eslint-disable-next-line no-console
+    console.log(`[tour-proxy] detailCommon2 upstream (masked)=${getMaskedKorService2Url('detailCommon2', params)}`)
+  }
+
+  try {
+    const json = await callKorService2('detailCommon2', params)
+    const body = json?.response?.body ?? {}
+    const items = extractItemsFromBody(body)
+    sendJson(res, 200, {
+      ok: true,
+      data: {
+        item: items[0] ?? null,
+        rawCount: items.length,
+      },
+    })
+  } catch (e) {
+    const payload = tourErrorPayload(e)
+    const status = errorStatusFromCode(payload.code, payload.upstreamStatus)
+    const publicMsg = detailCommonPublicMessage(payload)
+    sendJson(res, status, {
+      ok: false,
+      success: false,
+      source: 'tourapi',
+      endpoint: 'detailCommon2',
+      operation: 'detailCommon2',
+      message: publicMsg,
+      error: clientSafeDetailErrorPayload(payload),
+    })
+  }
 }
 
 async function handleSearchKeyword(url, res) {
@@ -142,7 +369,7 @@ async function handleSearchKeyword(url, res) {
     sendJson(res, 400, { ok: false, error: { code: 'BAD_REQUEST', message: 'keyword is required' } })
     return
   }
-  const json = await callKorWithService2('searchKeyword2', params)
+  const json = await callKorService2('searchKeyword2', params)
   const body = json?.response?.body ?? {}
   const items = extractItemsFromBody(body)
   sendJson(res, 200, {
@@ -180,7 +407,7 @@ async function handleTourAreaKorService(url, res) {
     sendJson(
       res,
       400,
-      tourAreaResponse(false, String(rawLang ?? ''), null, 'Invalid lang. Use ko, en, ja, zh-CN'),
+      tourAreaResponse(false, String(rawLang ?? ''), null, 'Invalid lang. Use ko, en, ja, zh-CN, zh-TW'),
     )
     return
   }
@@ -197,7 +424,6 @@ async function handleTourAreaKorService(url, res) {
     pageNo,
     numOfRows,
     lang,
-    listYN: 'Y',
     areaCode,
     ...(arrange ? { arrange } : {}),
     ...(sigunguCode ? { sigunguCode } : {}),
@@ -222,14 +448,14 @@ async function handleTourAreaKorService(url, res) {
   } catch (e) {
     const msg = e instanceof Error ? e.message : 'TourAPI error'
     const code = e?.code && typeof e.code === 'string' ? e.code : 'TOUR_ERROR'
-    const status = code === 'MISSING_SERVICE_KEY' ? 500 : 502
+    const status = errorStatusFromCode(code, e?.upstreamStatus)
     if (TOUR_PROXY_DEV) {
       // eslint-disable-next-line no-console
       console.warn(
         `[tour-proxy] /api/tour/area FAIL time=${Date.now() - t0}ms code=${code} msg=${msg}`,
       )
     }
-    sendJson(res, status, tourAreaResponse(false, lang, null, msg))
+    sendJson(res, status, tourFailureEnvelope(e))
   }
 }
 
@@ -243,7 +469,7 @@ async function handleTourTestMinimal(url, res) {
     sendJson(
       res,
       400,
-      tourAreaResponse(false, String(rawLang ?? ''), null, 'Invalid lang. Use ko, en, ja, zh-CN'),
+      tourAreaResponse(false, String(rawLang ?? ''), null, 'Invalid lang. Use ko, en, ja, zh-CN, zh-TW'),
     )
     return
   }
@@ -252,7 +478,6 @@ async function handleTourTestMinimal(url, res) {
   const paramRecord = {
     pageNo: '1',
     numOfRows: '10',
-    listYN: 'Y',
     lang,
     areaCode: '6',
   }
@@ -276,12 +501,12 @@ async function handleTourTestMinimal(url, res) {
   } catch (e) {
     const msg = e instanceof Error ? e.message : 'TourAPI error'
     const code = e?.code && typeof e.code === 'string' ? e.code : 'TOUR_ERROR'
-    const status = code === 'MISSING_SERVICE_KEY' ? 500 : 502
+    const status = errorStatusFromCode(code, e?.upstreamStatus)
     if (TOUR_PROXY_DEV) {
       // eslint-disable-next-line no-console
       console.warn(`[tour-proxy] /api/tour/test FAIL time=${Date.now() - t0}ms`, code, msg)
     }
-    sendJson(res, status, tourAreaResponse(false, lang, null, msg))
+    sendJson(res, status, tourFailureEnvelope(e))
   }
 }
 
@@ -311,7 +536,6 @@ async function handleTourTestLang(url, res) {
           areaCode,
           pageNo: '1',
           numOfRows: '1',
-          listYN: 'Y',
           lang: lc,
         })
         const items = extractItemsFromBody(json?.response?.body ?? {})
@@ -360,8 +584,28 @@ const server = http.createServer(async (req, res) => {
 
     const url = new URL(req.url, `http://${req.headers.host}`)
 
+    if (req.method === 'OPTIONS') {
+      res.writeHead(204, {
+        'Access-Control-Allow-Origin': '*',
+        'Access-Control-Allow-Methods': 'GET, OPTIONS',
+        'Access-Control-Allow-Headers': 'Content-Type',
+      })
+      res.end()
+      return
+    }
+
+    if (url.pathname === '/api/weather' || url.pathname === '/api/weather/') {
+      await handleWeatherProxy(url, res, sendJson)
+      return
+    }
+
     if (req.method !== 'GET') {
       sendJson(res, 404, { ok: false, error: { code: 'NOT_FOUND', message: 'Method not allowed' } })
+      return
+    }
+
+    if (url.pathname === '/api/crowd' || url.pathname === '/api/crowd/') {
+      await handleCrowdProxy(url, res, sendJson)
       return
     }
 
@@ -403,11 +647,9 @@ const server = http.createServer(async (req, res) => {
 
     sendJson(res, 404, { ok: false, error: { code: 'NOT_FOUND', message: 'Unknown tour route' } })
   } catch (e) {
-    const code = e?.code && typeof e.code === 'string' ? e.code : 'INTERNAL'
-    const message = e instanceof Error ? e.message : 'Server error'
-    const status =
-      code === 'BAD_REQUEST' ? 400 : code === 'MISSING_SERVICE_KEY' ? 500 : 502
-    sendJson(res, status, { ok: false, error: { code, message } })
+    const payload = tourErrorPayload(e)
+    const status = errorStatusFromCode(payload.code, payload.upstreamStatus)
+    sendJson(res, status, tourFailureEnvelope(e))
   }
 })
 
@@ -423,8 +665,6 @@ server.listen(PORT, '127.0.0.1', () => {
   }
   if (!process.env.VISITKOREA_SERVICE_KEY?.trim()) {
     // eslint-disable-next-line no-console
-    console.warn(
-      '[tour-api] VISITKOREA_SERVICE_KEY is missing — TourAPI routes will return 500/502. Set .env.local or use TOURAPI_THROW_IF_NO_KEY=1 to fail fast on startup.',
-    )
+    console.warn('[TourAPI] Missing VISITKOREA_SERVICE_KEY')
   }
 })

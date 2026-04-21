@@ -1,8 +1,9 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useNavigate } from "react-router";
 import { motion } from "motion/react";
 import { useApp } from "../context/AppContext";
 import { COMPANION_LIST, BUSAN_AREAS } from "../data/places";
+import { FIRST_VISIT_STORAGE_KEY } from "../i18n/constants";
 import {
   ChevronRight,
   Users,
@@ -13,10 +14,13 @@ import {
   Check,
   Database,
   MapPin,
+  ZoomIn,
+  Languages,
 } from "lucide-react";
 import { TopNav } from "./TopNav";
 import { StepIndicator } from "./StepIndicator";
 import onboardingCharacter from "../../assets/3.png";
+import { FirstVisitLanguageModal } from "./i18n/FirstVisitLanguageModal";
 
 const COMPANION_ICONS: Record<string, React.ReactNode> = {
   elderly: <Users size={24} color="#5B54D6" />,
@@ -29,8 +33,25 @@ const COMPANION_ICONS: Record<string, React.ReactNode> = {
 export function OnboardingScreen() {
   const navigate = useNavigate();
   const { companions, setCompanions, busanArea, setBusanArea } = useApp();
+  const [zoomPct, setZoomPct] = useState<100 | 112 | 124 | 136>(100);
   const [selected, setSelected] = useState<string[]>(companions);
   const [selectedArea, setSelectedArea] = useState(busanArea === "busan-all" ? "" : busanArea);
+  const [firstVisitOpen, setFirstVisitOpen] = useState(false);
+  const zoomButtonLabel = zoomPct === 100 ? "화면 확대" : zoomPct === 136 ? "원래 크기" : "더 크게";
+
+  const cycleZoom = () => {
+    setZoomPct((z) => (z === 100 ? 112 : z === 112 ? 124 : z === 124 ? 136 : 100));
+  };
+
+  useEffect(() => {
+    try {
+      if (!localStorage.getItem(FIRST_VISIT_STORAGE_KEY)) {
+        setFirstVisitOpen(true);
+      }
+    } catch {
+      setFirstVisitOpen(true);
+    }
+  }, []);
 
   const toggle = (id: string) => {
     setSelected((prev) =>
@@ -51,9 +72,67 @@ export function OnboardingScreen() {
   };
 
   return (
-    <div style={{ minHeight: "100dvh", display: "flex", flexDirection: "column", background: "#F8F9FC" }}>
+    <div
+      style={{
+        minHeight: "100dvh",
+        display: "flex",
+        flexDirection: "column",
+        background: "#F8F9FC",
+        zoom: zoomPct / 100,
+      }}
+    >
+      <FirstVisitLanguageModal
+        open={firstVisitOpen}
+        onClose={() => setFirstVisitOpen(false)}
+      />
       <TopNav showBack={false} />
       <StepIndicator current={0} />
+      <div style={{ padding: "10px 24px 0", display: "flex", justifyContent: "flex-end", gap: 8, flexWrap: "wrap" }}>
+        <button
+          type="button"
+          onClick={() => setFirstVisitOpen(true)}
+          style={{
+            display: "inline-flex",
+            alignItems: "center",
+            gap: 6,
+            minHeight: 40,
+            borderRadius: 10,
+            border: "1.5px solid #D8D4F5",
+            background: "white",
+            color: "#5B54D6",
+            fontSize: 12,
+            fontWeight: 700,
+            padding: "0 12px",
+            cursor: "pointer",
+          }}
+        >
+          <Languages size={14} />
+          초기 언어 설정
+        </button>
+        <button
+          type="button"
+          onClick={cycleZoom}
+          title={zoomButtonLabel}
+          style={{
+            display: "inline-flex",
+            alignItems: "center",
+            gap: 6,
+            minHeight: 40,
+            borderRadius: 10,
+            border: "1.5px solid #D8D4F5",
+            background: "#EEEDFA",
+            color: "#5B54D6",
+            fontSize: 12,
+            fontWeight: 700,
+            padding: "0 12px",
+            cursor: "pointer",
+          }}
+        >
+          <ZoomIn size={14} />
+          {zoomButtonLabel}
+          <span style={{ fontSize: 11, color: "#8E90A8" }}>({zoomPct}%)</span>
+        </button>
+      </div>
 
       <div style={{ padding: "24px 24px 0" }}>
         <motion.div

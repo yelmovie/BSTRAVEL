@@ -1,3 +1,8 @@
+/**
+ * Tour 목록은 `tourApiClient` 만 경유 (`instrumentedFetch` 직접 호출 없음).
+ * · `planTourFetchForBusanArea` 가 권역별로 areaBased 또는 searchKeyword 계획 → `fetchTourAreaBased` / `fetchTourSearchKeyword`
+ * · 둘 다 memoizedTourGet + CACHE_TTL_MS.tourList (searchKeyword 폴백 경로 포함).
+ */
 import type { AppLocale } from "../../i18n/constants"
 import { localeToTourApiLang } from "../../i18n/tourLang"
 import { fetchTourAreaBased, fetchTourSearchKeyword } from "../tour/tourApiClient"
@@ -6,6 +11,12 @@ import { finalizeTourPlacesFromTourApiOnly } from "../tour/tourPlacesTourApiOnly
 import { getBusanFallbackPlan, planTourFetchForBusanArea } from "./busanTourQuery"
 import { mapNormalizedTourToRecommendation } from "./mapTourToRecommendation"
 import type { NormalizedRecommendation } from "./recommendationModel"
+
+function devPipelineLog(stage: string, data: Record<string, unknown>) {
+  if (!import.meta.env.DEV) return
+  // eslint-disable-next-line no-console
+  console.log(`[recommend-pipeline] ${stage}`, data)
+}
 
 function pickStr(obj: Record<string, unknown>, ...keys: string[]): string {
   for (const k of keys) {
@@ -31,15 +42,17 @@ function dedupeOrdered(items: Record<string, unknown>[]): Record<string, unknown
   return out
 }
 
+/** TourAPI는 페이지당 `numOfRows`로 목록 크기 제한 — 전체 레코드를 가져오지 않습니다(Supabase 없음). */
 async function loadRawItems(
   busanAreaId: string,
   lang: string | undefined,
   signal?: AbortSignal,
 ): Promise<{ items: Record<string, unknown>[]; usedFallback: boolean }> {
   const primary = planTourFetchForBusanArea(busanAreaId)
+  const devExpandedRows = import.meta.env.DEV ? 50 : 10
   const common = {
-    /** 초기 카드만 필요 — 과호출 방지를 위해 최대 10건 */
-    numOfRows: 10,
+    /** 운영은 10건 유지, DEV 회귀 검증은 50건으로 확장 */
+    numOfRows: devExpandedRows,
     pageNo: 1,
     ...(lang ? { lang } : {}),
   }
@@ -48,7 +61,6 @@ async function loadRawItems(
     const data = await fetchTourAreaBased({
       ...primary.params,
       ...common,
-      listYN: "Y",
       signal,
     })
     if (signal?.aborted) return { items: [], usedFallback: false }
@@ -58,7 +70,6 @@ async function loadRawItems(
     const fbData = await fetchTourAreaBased({
       ...fb.params,
       ...common,
-      listYN: "Y",
       signal,
     })
     return { items: fbData.items, usedFallback: true }
@@ -77,7 +88,6 @@ async function loadRawItems(
   const fbData = await fetchTourAreaBased({
     ...fb.params,
     ...common,
-    listYN: "Y",
     signal,
   })
   return { items: fbData.items, usedFallback: true }
@@ -100,12 +110,21 @@ export async function fetchRecommendationsForBusan(opts: {
   const lang = localeToTourApiLang(opts.locale)
 
   const { items: rawItems, usedFallback } = await loadRawItems(opts.busanAreaId, lang, opts.signal)
+  devPipelineLog("raw-items", {
+    busanAreaId: opts.busanAreaId,
+    rawCount: rawItems.length,
+    usedFallback,
+  })
 
   if (opts.signal?.aborted) {
     return { items: [], fetchedAt: new Date().toISOString(), usedFallback }
   }
 
   const rows = dedupeOrdered(rawItems as Record<string, unknown>[])
+  devPipelineLog("dedupe", {
+    before: rawItems.length,
+    after: rows.length,
+  })
   const fetchedAt = new Date().toISOString()
 
   const normalized = rows.map((r) =>
@@ -114,8 +133,16 @@ export async function fetchRecommendationsForBusan(opts: {
       apiLang: lang,
     }),
   )
+  devPipelineLog("normalized", {
+    normalizedCount: normalized.length,
+  })
 
   const finalized = finalizeTourPlacesFromTourApiOnly(normalized, opts.locale, lang)
+  const validCoordsCount = finalized.filter((p) => p.lat != null && p.lng != null).length
+  devPipelineLog("coordinate-filter", {
+    finalizedCount: finalized.length,
+    validCoordsCount,
+  })
 
   const items = finalized.map((p) =>
     mapNormalizedTourToRecommendation({
@@ -123,6 +150,9 @@ export async function fetchRecommendationsForBusan(opts: {
       fetchedAt,
     }),
   )
+  devPipelineLog("recommendations", {
+    finalCount: items.length,
+  })
 
   return {
     items,

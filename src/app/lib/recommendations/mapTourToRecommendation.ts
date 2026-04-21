@@ -1,6 +1,8 @@
 import { buildAccessibleSummary } from "../tour/tourAccessibleSummary"
 import type { NormalizedTourPlace } from "../tour/tourTypes"
 import type { NormalizedRecommendation } from "./recommendationModel"
+import { derivePlaceKind } from "./recommendationPlaceKind"
+import { mapContentTypeIdToCategory } from "../tour/accessibilityScore"
 
 function pickStr(obj: Record<string, unknown>, ...keys: string[]): string {
   for (const k of keys) {
@@ -45,11 +47,24 @@ function accessibilityNoteForRecommendation(merged: Record<string, unknown>): st
     const s = buildAccessibleSummary(merged)
     if (s && !s.includes("세부 접근성 텍스트 필드가 응답에 없습니다")) return s
   }
-  return "접근성 정보 확인 필요 · 공공데이터 기본 필드만 제공되며 현장 확인을 권장합니다"
+  return "접근성 정보 확인 필요 · 공공데이터 기본 필드 위주입니다"
 }
 
 function isDataImageUrl(url: string): boolean {
   return url.startsWith("data:image")
+}
+
+function sanitizeImageUrl(input: string | null): string | null {
+  const raw = input?.trim() ?? ""
+  if (!raw || isDataImageUrl(raw)) return null
+  try {
+    const u = new URL(raw)
+    if (!/^https?:$/.test(u.protocol)) return null
+    if (!u.hostname || u.hostname.trim() === "") return null
+    return u.toString()
+  } catch {
+    return null
+  }
 }
 
 /**
@@ -73,26 +88,50 @@ export function mapNormalizedTourToRecommendation(params: {
   if (place.missingOriginalImage || !imageUrl || isDataImageUrl(imageUrl)) {
     imageUrl = null
   }
+  imageUrl = sanitizeImageUrl(imageUrl)
+
+  let thumbnailUrl: string | null = place.thumbnail ?? null
+  if (!thumbnailUrl || thumbnailUrl.trim() === "" || isDataImageUrl(thumbnailUrl)) {
+    thumbnailUrl = imageUrl
+  }
+  thumbnailUrl = sanitizeImageUrl(thumbnailUrl) ?? imageUrl
 
   const address =
     place.address?.trim() ||
     pickStr(merged, "addr1", "addr2") ||
     null
 
+  const category = categoryLabel(place.contentTypeId, merged)
+  const tags = collectTags(merged)
+
   return {
     id: place.id,
     contentTypeId: place.contentTypeId,
+    placeKind: derivePlaceKind({
+      contentTypeId: place.contentTypeId,
+      title: place.title || "",
+      category,
+      tags,
+    }),
     title: place.title || "제목 없음",
     address,
+    thumbnailUrl,
     imageUrl,
     overview: overview?.trim() || null,
     lat: place.lat,
     lng: place.lng,
-    category: categoryLabel(place.contentTypeId, merged),
-    tags: collectTags(merged),
+    category,
+    tags,
     source: "live",
     fetchedAt,
     accessibilityNote: accessibilityNoteForRecommendation(merged),
+    accessibleScore: 0,
+    accessibilityReason: [],
+    accessibilityReasons: [],
+    placeCategory: mapContentTypeIdToCategory(place.contentTypeId),
+    isAccessibleCandidate: false,
+    accessibilityMetrics: null,
     mergedRaw: merged,
+    routeMetrics: null,
   }
 }

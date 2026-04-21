@@ -3,21 +3,26 @@ import { useNavigate } from "react-router";
 import { motion, AnimatePresence } from "motion/react";
 import { CheckCircle, Loader } from "lucide-react";
 import { LoadingMascot } from "../LoadingMascot";
-
-const ANALYSIS_STEPS = [
-  { label: "동행자 조건 · 코스 메타데이터와 매칭",     src: "클라이언트 시뮬 (API 일괄 호출 아님)" },
-  { label: "혼잡·날씨 이슈는 본 화면에서 직접 수집하지 않음", src: "시연용 단계 문구" },
-  { label: "KorWith TourAPI는 추천/연동 테스트 화면에서 호출", src: "KorWithService2 (서버 프록시 + 키)" },
-  { label: "부산 권역 날씨는 Open-Meteo(다른 화면)에서 수신", src: "Open-Meteo (기상청과 동일 아님)" },
-  { label: "배리어프리 가정·시뮬 문구",                 src: "데모 시나리오" },
-  { label: "최적 코스 점수·정렬 (로컬)",              src: "앱 내 데모 데이터" },
-];
+import { useI18n } from "../../i18n/I18nContext";
 
 export function GeneratingPage() {
   const navigate = useNavigate();
+  const { t } = useI18n();
   const [progress, setProgress] = useState(0);
   const [stepIndex, setStepIndex] = useState(0);
   const [done, setDone] = useState(false);
+
+  const analysisSteps = [
+    "step1",
+    "step2",
+    "step3",
+    "step4",
+    "step5",
+    "step6",
+  ].map((step) => ({
+    label: t(`desktopPages.generating.steps.${step}.label`),
+    src: t(`desktopPages.generating.steps.${step}.src`),
+  }));
 
   useEffect(() => {
     // Progress bar: 0 → 100 over ~3.2s
@@ -32,11 +37,11 @@ export function GeneratingPage() {
 
   useEffect(() => {
     // Reveal steps every ~0.5s
-    if (stepIndex < ANALYSIS_STEPS.length - 1) {
+    if (stepIndex < analysisSteps.length - 1) {
       const t = setTimeout(() => setStepIndex(i => i + 1), 500);
       return () => clearTimeout(t);
     }
-  }, [stepIndex]);
+  }, [analysisSteps.length, stepIndex]);
 
   useEffect(() => {
     if (progress >= 100) {
@@ -117,12 +122,12 @@ export function GeneratingPage() {
             fontSize: 26, fontWeight: 800, color: "#1A1B2E",
             letterSpacing: -0.6, margin: "0 0 8px",
           }}>
-            {done ? "최적 코스 분석 완료!" : "최적 코스를 분석하고 있습니다"}
+            {done ? t("desktopPages.generating.titleDone") : t("desktopPages.generating.titleLoading")}
           </h2>
           <p style={{ fontSize: 14, color: "#8E90A8", margin: 0, lineHeight: 1.5 }}>
             {done
-              ? "동행자 조건에 맞는 3개의 코스를 찾았습니다."
-              : "아래 단계 목록은 진행 연출용입니다. 공공 API를 이 화면에서 동시에 호출하지 않습니다."}
+              ? t("desktopPages.generating.descDone")
+              : t("desktopPages.generating.descLoading")}
           </p>
         </motion.div>
 
@@ -153,7 +158,7 @@ export function GeneratingPage() {
           padding: "24px 28px",
           display: "flex", flexDirection: "column", gap: 0,
         }}>
-          {ANALYSIS_STEPS.map((step, i) => {
+          {analysisSteps.map((step, i) => {
             const isVisible  = i <= stepIndex;
             const isComplete = i < stepIndex || done;
             const isActive   = i === stepIndex && !done;
@@ -168,7 +173,7 @@ export function GeneratingPage() {
                     style={{
                       display: "flex", alignItems: "center", gap: 12,
                       padding: "10px 0",
-                      borderBottom: i < ANALYSIS_STEPS.length - 1 ? "1px solid #F4F5FA" : "none",
+                      borderBottom: i < analysisSteps.length - 1 ? "1px solid #F4F5FA" : "none",
                     }}
                   >
                     <div style={{ width: 22, height: 22, flexShrink: 0, display: "flex", alignItems: "center", justifyContent: "center" }}>
@@ -194,7 +199,7 @@ export function GeneratingPage() {
                       </div>
                       {(isActive || isComplete) && (
                         <div style={{ fontSize: 10, color: "#A0A2B8", marginTop: 1 }}>
-                          출처: {step.src}
+                          {t("desktopPages.generating.sourceLabel")} {step.src}
                         </div>
                       )}
                     </div>
@@ -203,7 +208,7 @@ export function GeneratingPage() {
                         fontSize: 9, fontWeight: 700, color: "#3D8B7A",
                         background: "#EDF7F2", borderRadius: 4, padding: "2px 6px",
                       }}>
-                        완료
+                        {t("desktopPages.generating.completeBadge")}
                       </span>
                     )}
                   </motion.div>
@@ -216,7 +221,7 @@ export function GeneratingPage() {
         <p style={{
           fontSize: 11, color: "#9EA0B8", marginTop: 20, textAlign: "center", lineHeight: 1.5, maxWidth: 480, marginLeft: "auto", marginRight: "auto",
         }}>
-          이 화면의 단계/퍼센트는 UI 시뮬레이션입니다. TourAPI·Open-Meteo 실연동 여부는 추천(KorWith), 날씨 위젯, <code style={{ fontSize: 10 }}>/mobile/tour-debug</code> 및 개발 모드 「API 디버그」패널로 확인할 수 있습니다.
+          {t("desktopPages.generating.footnote")}
         </p>
       </div>
     </div>

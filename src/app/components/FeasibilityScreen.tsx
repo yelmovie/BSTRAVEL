@@ -664,7 +664,7 @@ export function FeasibilityScreen() {
             <div>
               <div style={{ fontSize: 12, fontWeight: 600, color: "#5B54D6", marginBottom: 3 }}>분석 기준</div>
               <div style={{ fontSize: 12, color: "#5A5280", lineHeight: 1.5 }}>
-                한국관광공사 무장애 여행정보 OpenAPI 기반으로 실제 접근성 데이터, 혼잡도 통계, 보행 거리 지표를 분석합니다. 당일 날씨 및 이벤트에 따라 실제 상황이 다를 수 있습니다.
+                무장애 여행정보 등 공공 접근성 텍스트와 코스별 시뮬레이션 지표를 바탕으로 실행 가능성을 참고 분석합니다. 실제 혼잡·현장 여건은 별도 연동 전까지 반영되지 않을 수 있습니다.
               </div>
             </div>
           </div>

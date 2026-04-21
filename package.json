@@ -11,10 +11,14 @@
     "build": "vite build",
     "test": "vitest run",
     "test:watch": "vitest",
-    "dev": "concurrently -k -n api,vite -c blue,green \"pnpm run dev:api\" \"vite\"",
+    "dev": "concurrently -n api,vite -c blue,green \"pnpm run dev:api\" \"vite\"",
     "dev:vite": "vite",
     "dev:api": "node server/tourApi.mjs",
-    "start:api": "node server/tourApi.mjs"
+    "start:api": "node server/tourApi.mjs",
+    "env:check": "node scripts/checkEnv.mjs",
+    "env:restore": "node scripts/restoreEnvTemplate.mjs",
+    "check:i18n": "node --experimental-strip-types scripts/check-i18n.ts",
+    "check:i18n:all": "node --experimental-strip-types scripts/check-i18n.ts --all"
   },
   "dependencies": {
     "@emotion/react": "11.14.0",

@@ -1,7 +1,8 @@
 import { useEffect, useRef, useState, type CSSProperties } from 'react'
 
-import { loadKakaoMapsSdk } from '../../lib/kakao/loadKakaoMapsSdk'
+import { getKakaoSdkDiagnostics, loadKakaoMapsSdk } from '../../lib/kakao/loadKakaoMapsSdk'
 import { routePointsFromMarkerPlaces, type TourMapMarkerPlace } from '../../lib/tour/tourMapMarkers'
+import { placeKindBadgeLabelKo } from '../../lib/recommendations/recommendationPlaceKind'
 
 /** 부산 시청 일대 기준 시가지 뷰 */
 export const DEFAULT_BUSAN_LAT = 35.1796
@@ -30,6 +31,7 @@ function buildMarkerInfoHtml(
   const badgeFg = p.source === 'live' ? '#3D8B7A' : '#6B6B88'
   const badgeLabel = p.source === 'live' ? '실데이터 · TourAPI' : '데모'
   const title = escapeHtml(p.title || '(제목 없음)')
+  const kindKo = escapeHtml(placeKindBadgeLabelKo(p.placeKind))
   const addr =
     p.address === null
       ? ''
@@ -49,8 +51,9 @@ function buildMarkerInfoHtml(
 
   return `
     <div style="padding:10px 12px;min-width:180px;max-width:260px;font-family:'Noto Sans KR',sans-serif;">
-      <div style="display:flex;align-items:center;gap:6px;margin-bottom:6px;">
+      <div style="display:flex;align-items:center;flex-wrap:wrap;gap:6px;margin-bottom:6px;">
         <span style="display:inline-block;padding:2px 7px;border-radius:6px;font-size:10px;font-weight:700;color:${badgeFg};background:${badgeBg};">${badgeLabel}</span>
+        <span style="display:inline-block;padding:2px 7px;border-radius:6px;font-size:10px;font-weight:700;color:#5B54D6;background:#F6F5FF;border:1px solid #E8E6FA;">${kindKo}</span>
       </div>
       ${routeRow}
       <div style="font-size:13px;font-weight:700;color:#1A1B2E;line-height:1.35;">${title}</div>
@@ -116,11 +119,14 @@ export function KakaoMapView({
   const propsRef = useRef({ lat, lng, level })
   propsRef.current = { lat, lng, level }
 
-  const [fatalError, setFatalError] = useState(false)
+  const [fatalErrorMessage, setFatalErrorMessage] = useState<string | null>(null)
+  const [, setDiagnosticVersion] = useState(0)
   const [mapReady, setMapReady] = useState(false)
 
   const markersLayoutKey = places
-    .map((m) => `${m.id}|${m.lat}|${m.lng}|${m.title}|${m.address ?? ''}|${m.source}`)
+    .map((m) =>
+      `${m.id}|${m.lat}|${m.lng}|${m.title}|${m.address ?? ''}|${m.source}|${m.placeKind}|${m.courseOrder}|${m.isAccessibleHighlight ? 1 : 0}|${m.accessibilityHint ?? ''}`,
+    )
     .join('¦')
 
   const markerFrameKey = `${markersLayoutKey}¦sel:${selectedPlaceId ?? '∅'}`
@@ -134,14 +140,17 @@ export function KakaoMapView({
     ;(async () => {
       try {
         await loadKakaoMapsSdk()
-      } catch {
-        if (!cancelled) setFatalError(true)
+      } catch (e) {
+        if (!cancelled) {
+          setFatalErrorMessage(e instanceof Error ? e.message : '지도를 불러오지 못했습니다')
+          setDiagnosticVersion((v) => v + 1)
+        }
         return
       }
 
       const el = containerRef.current
       if (!el) {
-        if (!cancelled) setFatalError(true)
+        if (!cancelled) setFatalErrorMessage('지도 컨테이너를 찾지 못했습니다')
         return
       }
 
@@ -152,9 +161,9 @@ export function KakaoMapView({
           level: lv,
         })
         mapRef.current.relayout()
-        if (!cancelled) setFatalError(false)
-      } catch {
-        if (!cancelled) setFatalError(true)
+        if (!cancelled) setFatalErrorMessage(null)
+      } catch (e) {
+        if (!cancelled) setFatalErrorMessage(e instanceof Error ? e.message : '지도를 불러오지 못했습니다')
       }
     })()
 
@@ -175,8 +184,8 @@ export function KakaoMapView({
       map.setCenter(new kakao.maps.LatLng(lat, lng))
       map.setLevel(level)
       map.relayout()
-    } catch {
-      setFatalError(true)
+    } catch (e) {
+      setFatalErrorMessage(e instanceof Error ? e.message : '지도를 불러오지 못했습니다')
     }
   }, [markerMode, lat, lng, level])
 
@@ -189,14 +198,17 @@ export function KakaoMapView({
     ;(async () => {
       try {
         await loadKakaoMapsSdk()
-      } catch {
-        if (!cancelled) setFatalError(true)
+      } catch (e) {
+        if (!cancelled) {
+          setFatalErrorMessage(e instanceof Error ? e.message : '지도를 불러오지 못했습니다')
+          setDiagnosticVersion((v) => v + 1)
+        }
         return
       }
 
       const el = containerRef.current
       if (!el || cancelled) {
-        if (!cancelled && !el) setFatalError(true)
+        if (!cancelled && !el) setFatalErrorMessage('지도 컨테이너를 찾지 못했습니다')
         return
       }
 
@@ -209,11 +221,11 @@ export function KakaoMapView({
         infoWindowRef.current = new kakao.maps.InfoWindow({ removable: true })
         ensurePinImages()
         if (!cancelled) {
-          setFatalError(false)
+          setFatalErrorMessage(null)
           setMapReady(true)
         }
-      } catch {
-        if (!cancelled) setFatalError(true)
+      } catch (e) {
+        if (!cancelled) setFatalErrorMessage(e instanceof Error ? e.message : '지도를 불러오지 못했습니다')
       }
     })()
 
@@ -241,7 +253,7 @@ export function KakaoMapView({
 
     const map = mapRef.current
     const iw = infoWindowRef.current
-    if (!mapReady || !map || !iw || fatalError) return
+    if (!mapReady || !map || !iw || fatalErrorMessage) return
 
     iw.close()
 
@@ -341,10 +353,16 @@ export function KakaoMapView({
         selectedPlaceId ?? '—',
       )
     }
-  }, [markerMode, markerFrameKey, mapReady, fatalError, onMarkerSelect])
+  }, [markerMode, markerFrameKey, mapReady, fatalErrorMessage, onMarkerSelect])
 
   const showEmptyPlacesHint =
-    markerMode && places.length === 0 && mapReady && !fatalError
+    markerMode && places.length === 0 && mapReady && !fatalErrorMessage
+
+  const diagnosticUrl =
+    import.meta.env.DEV
+      ? (window as Window & { __BSTRAVEL_KAKAO_SDK_URL__?: string }).__BSTRAVEL_KAKAO_SDK_URL__
+      : undefined
+  const diagnostics = import.meta.env.DEV ? getKakaoSdkDiagnostics() : null
 
   return (
     <div
@@ -367,9 +385,9 @@ export function KakaoMapView({
           inset: 0,
           minHeight: 400,
         }}
-        aria-hidden={fatalError}
+        aria-hidden={Boolean(fatalErrorMessage)}
       />
-      {fatalError ? (
+      {fatalErrorMessage ? (
         <div
           style={{
             position: 'absolute',
@@ -386,7 +404,62 @@ export function KakaoMapView({
             lineHeight: 1.5,
           }}
         >
-          지도를 불러오지 못했습니다
+          <div>
+            <div>지도를 불러오지 못했습니다</div>
+            <div style={{ marginTop: 8 }}>{fatalErrorMessage}</div>
+            <div style={{ marginTop: 10 }}>
+              Kakao 지도 스크립트 요청이 차단되었을 수 있습니다.
+              <br />
+              브라우저 확장 프로그램, 추적 방지 기능, 보안 프로그램, 네트워크 차단, 또는 카카오 JavaScript 키/도메인 등록을 확인하세요.
+            </div>
+            {import.meta.env.DEV && diagnosticUrl ? (
+              <>
+                <div
+                  style={{
+                    marginTop: 12,
+                    padding: '10px 12px',
+                    borderRadius: 10,
+                    background: '#FFFFFF',
+                    border: '1px solid #E4E6EF',
+                    fontSize: 12,
+                    color: '#6B6B88',
+                    textAlign: 'left',
+                    lineHeight: 1.6,
+                    wordBreak: 'break-all',
+                  }}
+                >
+                  <div style={{ fontWeight: 700, color: '#1A1B2E', marginBottom: 6 }}>개발 진단</div>
+                  <div>key detected: {diagnostics?.keyDetected ? 'yes' : 'no'}</div>
+                  <div>sdk request url: {diagnostics?.maskedUrl ?? diagnosticUrl}</div>
+                  <div>script load event: {diagnostics?.lastScriptEvent ?? 'idle'}</div>
+                  <div>existing script tag: {diagnostics?.existingScriptTag ? 'yes' : 'no'}</div>
+                  <div>window.kakao: {diagnostics?.windowKakaoExists ? 'yes' : 'no'}</div>
+                  <div>window.kakao.maps: {diagnostics?.windowKakaoMapsExists ? 'yes' : 'no'}</div>
+                </div>
+                <div
+                  style={{
+                    marginTop: 10,
+                    padding: '10px 12px',
+                    borderRadius: 10,
+                    background: '#FFFDF6',
+                    border: '1px solid #F2E3B6',
+                    fontSize: 12,
+                    color: '#7A5D00',
+                    textAlign: 'left',
+                    lineHeight: 1.55,
+                  }}
+                >
+                  <div style={{ fontWeight: 700, marginBottom: 4 }}>개발 모드 점검 체크리스트</div>
+                  <div>- 시크릿 모드에서 테스트</div>
+                  <div>- 광고 차단/보안 확장 프로그램 끄기</div>
+                  <div>- 다른 브라우저에서 테스트</div>
+                  <div>- 다른 네트워크(예: 휴대폰 핫스팟)에서 테스트</div>
+                  <div>- 카카오 개발자 콘솔에 `http://localhost:5173` 등록 확인</div>
+                  <div>- JavaScript 키 사용 여부 확인</div>
+                </div>
+              </>
+            ) : null}
+          </div>
         </div>
       ) : null}
       {showEmptyPlacesHint ? (

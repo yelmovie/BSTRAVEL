@@ -1,7 +1,9 @@
 import { Outlet, useLocation, useNavigate, Navigate } from "react-router";
 import { motion } from "motion/react";
-import { Route, Home, ChevronRight, Check } from "lucide-react";
+import { Route, Home, Check, ZoomIn } from "lucide-react";
 import { DesktopFlowProvider, useDesktopFlow } from "../../context/DesktopFlowContext";
+import { DesktopZoomProvider, useDesktopZoom } from "../../context/DesktopZoomContext";
+import { TourRecommendationsProvider } from "../../context/TourRecommendationsContext";
 import { useI18n } from "../../i18n/I18nContext";
 import { LanguageSwitcher } from "../i18n/LanguageSwitcher";
 
@@ -21,17 +23,13 @@ function getStep(pathname: string): number {
   return 0;
 }
 
-export function DesktopRoot() {
+function DesktopChrome() {
   const location = useLocation();
   const navigate  = useNavigate();
   const { t } = useI18n();
   const { selectedCourse } = useDesktopFlow();
+  const { zoomPct, cycleZoom, zoomButtonLabel } = useDesktopZoom();
   const currentStep = getStep(location.pathname);
-
-  // Redirect /desktop to /desktop/onboarding
-  if (location.pathname === "/desktop" || location.pathname === "/desktop/") {
-    return <Navigate to="/desktop/onboarding" replace />;
-  }
 
   /** Resolve the navigation URL for a step, injecting :id where needed */
   function resolveStepPath(stepKey: (typeof STEPS)[number]["stepKey"]): string {
@@ -44,7 +42,6 @@ export function DesktopRoot() {
   }
 
   return (
-    <DesktopFlowProvider>
       <div style={{
         minHeight: "100dvh", background: "#F6F7FB",
         fontFamily: "'Noto Sans KR', -apple-system, sans-serif",
@@ -139,6 +136,22 @@ export function DesktopRoot() {
 
           {/* Actions */}
           <div style={{ display: "flex", gap: 10, alignItems: "center", flexShrink: 0, marginLeft: 32 }}>
+            <button
+              type="button"
+              onClick={cycleZoom}
+              title={zoomButtonLabel}
+              style={{
+                display: "flex", alignItems: "center", gap: 6,
+                padding: "8px 14px", borderRadius: 8,
+                border: "1.5px solid #D8D4F5", background: "#EEEDFA",
+                fontSize: 12, fontWeight: 700, color: "#5B54D6", cursor: "pointer",
+              }}
+            >
+              <ZoomIn size={14} />{zoomButtonLabel}
+              <span style={{ fontSize: 10, fontWeight: 600, color: "#8E90A8", marginLeft: 2 }}>
+                ({zoomPct}%)
+              </span>
+            </button>
             <LanguageSwitcher variant="compact" />
             <button
               type="button"
@@ -155,11 +168,28 @@ export function DesktopRoot() {
           </div>
         </header>
 
-        {/* Content */}
-        <div style={{ flex: 1 }}>
-          <Outlet />
-        </div>
+        {/* Content — 전체 화면 확대(줌)는 본문 영역만 적용 */}
+        <TourRecommendationsProvider>
+          <div style={{ flex: 1, minHeight: 0, display: "flex", flexDirection: "column", zoom: zoomPct / 100 }}>
+            <Outlet />
+          </div>
+        </TourRecommendationsProvider>
       </div>
-    </DesktopFlowProvider>
+  );
+}
+
+export function DesktopRoot() {
+  const location = useLocation();
+
+  if (location.pathname === "/desktop" || location.pathname === "/desktop/") {
+    return <Navigate to="/desktop/onboarding" replace />;
+  }
+
+  return (
+    <DesktopZoomProvider>
+      <DesktopFlowProvider>
+        <DesktopChrome />
+      </DesktopFlowProvider>
+    </DesktopZoomProvider>
   );
 }
