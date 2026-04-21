@@ -1,0 +1,135 @@
+/* Tour 관광 워크벤치 — 목록 | 지도 | 상세 */
+
+.tw-page {
+  min-height: 100dvh;
+  max-height: 100dvh;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  background: #f8f9fc;
+  font-family: 'Noto Sans KR', system-ui, sans-serif;
+}
+
+.tw-body {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  padding: 12px 16px 16px;
+  gap: 10px;
+}
+
+.tw-main {
+  flex: 1;
+  min-height: 0;
+  display: grid;
+  gap: 12px;
+  align-items: stretch;
+}
+
+/* xl+: 3열 */
+@media (min-width: 1280px) {
+  .tw-main {
+    grid-template-columns: minmax(260px, 30%) minmax(360px, 42%) minmax(240px, 28%);
+    grid-template-rows: 1fr;
+  }
+  .tw-col-list {
+    grid-column: 1;
+  }
+  .tw-col-map {
+    grid-column: 2;
+  }
+  .tw-col-detail {
+    grid-column: 3;
+  }
+}
+
+/* md ~ lg: 목록+지도 2열, 상세는 아래 전체 */
+@media (min-width: 768px) and (max-width: 1279.98px) {
+  .tw-main {
+    grid-template-columns: minmax(240px, 34%) 1fr;
+    grid-template-rows: 1fr minmax(200px, 36%);
+  }
+  .tw-col-list {
+    grid-column: 1;
+    grid-row: 1;
+  }
+  .tw-col-map {
+    grid-column: 2;
+    grid-row: 1;
+  }
+  .tw-col-detail {
+    grid-column: 1 / -1;
+    grid-row: 2;
+  }
+}
+
+/* sm 이하: 필터(상단 영역 밖) — 본문은 지도 → 목록 → 상세 */
+@media (max-width: 767.98px) {
+  .tw-page {
+    max-height: none;
+    overflow: auto;
+  }
+  .tw-body {
+    overflow: visible;
+  }
+  .tw-main {
+    display: flex;
+    flex-direction: column;
+    flex: 0 0 auto;
+    min-height: auto;
+  }
+  .tw-col-map {
+    order: 1;
+    min-height: min(52vh, 420px);
+  }
+  .tw-col-list {
+    order: 2;
+    max-height: 42vh;
+    min-height: 200px;
+  }
+  .tw-col-detail {
+    order: 3;
+    max-height: none;
+  }
+}
+
+.tw-panel {
+  background: #fff;
+  border: 1px solid #e8e9ef;
+  border-radius: 12px;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  box-shadow: 0 1px 2px rgba(26, 26, 46, 0.04);
+}
+
+.tw-panel-scroll {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+.tw-panel-head {
+  flex-shrink: 0;
+  padding: 10px 12px;
+  border-bottom: 1px solid #eef0f6;
+  font-size: 12px;
+  font-weight: 700;
+  color: #4a4a6a;
+}
+
+.tw-map-inner {
+  flex: 1;
+  min-height: 280px;
+  padding: 8px;
+  display: flex;
+  flex-direction: column;
+}
+
+@media (min-width: 768px) {
+  .tw-map-inner {
+    min-height: 320px;
+  }
+}
