@@ -6,7 +6,7 @@
   "installCommand": "pnpm install --no-frozen-lockfile",
   "rewrites": [
     {
-      "source": "/((?!api/).*)",
+      "source": "/((?!api/|.*\\..*).*)",
       "destination": "/index.html"
     }
   ]
