@@ -15,7 +15,7 @@ import {
   RecommendationMapFocusProvider,
 } from "../context/RecommendationMapFocusContext";
 import { useRecommendationsExploreModel } from "../lib/recommendations/useRecommendationsExploreModel";
-import { LeafletTourPlacesMap } from "./map/LeafletTourPlacesMap";
+import { KakaoMapView } from "./map/KakaoMapView";
 import { type LiveSortKey } from "../lib/recommendations/sortRecommendations";
 import { SimulationCoursesCollapsible } from "./recommendations/SimulationCoursesCollapsible";
 import { openExternalMapSearch } from "../lib/maps/externalMapLinks";
@@ -127,11 +127,10 @@ function MobileRecommendationMapBundle() {
             ))}
           </div>
         ) : null}
-        <LeafletTourPlacesMap
-          markers={markers}
+        <KakaoMapView
+          places={markers}
           selectedPlaceId={selectedPlaceId}
           onMarkerSelect={onMarkerSelect}
-          statusMessage={mapStatusMessage}
           style={{ height: 260, minHeight: 240 }}
         />
       </div>

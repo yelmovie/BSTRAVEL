@@ -18,7 +18,7 @@ import {
 } from "../../context/TourRecommendationsContext";
 import { useApp } from "../../context/AppContext";
 import { useRecommendationsExploreModel } from "../../lib/recommendations/useRecommendationsExploreModel";
-import { LeafletTourPlacesMap } from "../map/LeafletTourPlacesMap";
+import { KakaoMapView } from "../map/KakaoMapView";
 import { SimulationCoursesCollapsible } from "../recommendations/SimulationCoursesCollapsible";
 import { isDemoMode } from "../../lib/demoMode";
 import { useI18n } from "../../i18n/I18nContext";
@@ -149,7 +149,7 @@ function ResultsPageInner() {
               style={{
                 fontSize: 28, fontWeight: 900, color: "#1A1B2E",
                 margin: "0 0 5px", letterSpacing: -0.8,
-              }}
+                }}
             >
               {t("desktopPages.results.title")}
             </h1>
@@ -260,11 +260,10 @@ function ResultsPageInner() {
               ))}
             </div>
           ) : null}
-          <LeafletTourPlacesMap
-            markers={markers}
+          <KakaoMapView
+            places={markers}
             selectedPlaceId={selectedPlaceId}
             onMarkerSelect={onMarkerSelect}
-            statusMessage={mapStatusMessage}
             style={{ height: 320, minHeight: 280 }}
           />
         </div>
